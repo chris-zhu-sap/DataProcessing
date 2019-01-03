@@ -374,7 +374,7 @@ class DataProcess(object):
         
 
 if __name__ == '__main__':
-    dataDate = '2019-01-01'
+    dataDate = '2019-01-02'
 #     wanke = DataProcess('000002',dataDate,'D')
 #     wanke.makeGenData()
 #     wanke.saveAsGeneratedData()
