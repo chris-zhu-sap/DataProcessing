@@ -135,7 +135,7 @@ def updateStockDataForList(codeList=None,date=None,k=None,updateDir=False):
     for code in codeList:
         try:
             if code in df.index:
-                    updateStockData(code, date, k)
+                updateStockData(code, date, k)
             else:
                 print("[Function:%s line:%s] The parameter code is not exists now!" % (updateStockData.__name__,sys._getframe().f_lineno))
                 sys.exit()
@@ -157,7 +157,7 @@ def updateStockDataForList(codeList=None,date=None,k=None,updateDir=False):
         
         
 def updateStockData(code,date=None,k=None):
-    myStock = StockData(code,date)
+    myStock = StockData(code,date=date)
     if(k is None):
         myStock.updateAllKData()
     else:
@@ -348,7 +348,7 @@ class StockData(object):
                 sys.exit()
     
         else:
-            print("[Function: %s line:%d]: %s: file %s is not exists!" % (self.doUpdate.__name__, logStr, filePath,sys._getframe().f_lineno))
+            print("[Function: %s line:%d]: %s: file %s is not exists!" % (self.doUpdate.__name__, sys._getframe().f_lineno, logStr, filePath))
             sys.exit()
 
 if __name__ == '__main__':

@@ -282,9 +282,14 @@ class DataProcess(object):
                             difData = pd.Series(dataDf['dif'][-period:])
                             if(lastPeriod > 0):
                                 difData = pd.Series(dataDf['dif'][-(period+lastPeriod):-lastPeriod])
+                            else:
+                                difData = pd.Series(dataDf['dif'][-period:])
                             index = difData.idxmin()
                             indexStart = dfLength -(period+lastPeriod)
-                            if(dataDf.at[index,'low'] > dataDf.at[indexLastDay,'low'] and dataDf.at[index,'dif'] < dataDf.at[indexLastDay,'dif'] and index != indexStart):
+                            if(dataDf.at[index,'low'] > dataDf.at[indexLastDay,'low'] 
+                               and dataDf.at[index,'dif'] < dataDf.at[indexLastDay,'dif'] 
+                               and index != indexStart 
+                               and index != indexLastDay):
                                 data = {'aCode':[self.code],
                                         'aName':[self.name],
                                         'aType':['底背离'],
@@ -325,9 +330,14 @@ class DataProcess(object):
                             difData = pd.Series(dataDf['dif'][-period:])
                             if(lastPeriod > 0):
                                 difData = pd.Series(dataDf['dif'][-(period+lastPeriod):-lastPeriod])
+                            else:
+                                difData = pd.Series(dataDf['dif'][-period:])
                             index = difData.idxmax()
                             indexStart = dfLength -(period+lastPeriod)
-                            if(dataDf.at[index,'high'] < dataDf.at[indexLastDay,'high'] and dataDf.at[index,'dif'] > dataDf.at[indexLastDay,'dif'] and index != indexStart):
+                            if(dataDf.at[index,'high'] < dataDf.at[indexLastDay,'high'] 
+                               and dataDf.at[index,'dif'] > dataDf.at[indexLastDay,'dif'] 
+                               and index != indexStart 
+                               and index != indexLastDay):
                                 data = {'aCode':[self.code],
                                         'aName':[self.name],
                                         'aType':['顶背离'],
@@ -375,30 +385,29 @@ class DataProcess(object):
 
 if __name__ == '__main__':
     dataDate = '2019-01-02'
-    dataDateTest = '2019-01-02'
 #     wanke = DataProcess('000002',dataDate,'D')
 #     wanke.makeGenData()
 #     wanke.saveAsGeneratedData()
 #     generateIncicatorForAllPeriod('000002',dataDate)
-
+  
 #     hs300StockListFileUrl  = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000300cons.xls'
 #     indexCode, filename= sd.getNameAndCode(hs300StockListFileUrl)
 #     hs300CodeList = sd.getChinaStockList(hs300StockListFileUrl, filename)
-#      
+      
 #     zz500StockListFileUrl  = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000905cons.xls'
 #     indexCode, filename= sd.getNameAndCode(zz500StockListFileUrl)
 #     zz500CodeList = sd.getChinaStockList(zz500StockListFileUrl, filename)
-#      
+      
 #     myCodeList = ['600030','600036','600061','600893','600498','300033','600547','300383','002716','600109','002353','300059']
-#     codeList = hs300CodeList + zz500CodeList + myCodeList
+#     codeList = hs300CodeList + myCodeList
 #     codeList = list(set(codeList))
     
-    codeList = ['000002','600030','600036','600061','600893','600498','300033','600547','300383','002716','600109','002353','300059']
+    codeList = ['600030','600036','600061','600893','600498','300033','600547','300383','002716','600109','002353','300059']
 
-    sd.downloadStockDataAsCSV(codeList)
-    sd.updateStockDataForList(codeList, dataDate)
-    generateMoreDataForAllStocks(codeList, dataDate)
-    updateGeneratedDataForAllStocks(codeList,dataDate)
+#     sd.downloadStockDataAsCSV(codeList)
+#     sd.updateStockDataForList(codeList, dataDate)
+#     generateMoreDataForAllStocks(codeList, dataDate)
+#     updateGeneratedDataForAllStocks(codeList,dataDate)
     getCurrentTradeReport(codeList,dataDate)
 #     codeList = ['000001','000002','000063']
 #     generateMoreDataForAllStocks(codeList, dataDate)
