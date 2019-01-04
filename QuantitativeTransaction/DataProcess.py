@@ -10,6 +10,8 @@ import pandas as pd
 import sys
 import tushare as ts
 import time
+import datetime
+import pytz
 # from matplotlib.pylab import date2num
 # import matplotlib.pyplot as plt  
 # import matplotlib.finance as mpf
@@ -108,7 +110,9 @@ def getCurrentTradeReport(stockList=None, dataDirByDate=None):
         sys.exit()          
     else:
         dfCurrent = ts.get_today_all()
-        today = time.strftime('%Y-%m-%d')
+        #pytz.timezone('Asia/Shanghai') #东八区
+        today = datetime.datetime.fromtimestamp(int(time.time()), pytz.timezone('Asia/Shanghai')).strftime('%Y-%m-%d')
+
         for code in stockList:
             df = dfCurrent[dfCurrent['code'] == code]
             if(len(df) > 0):
@@ -384,7 +388,7 @@ class DataProcess(object):
         
 
 if __name__ == '__main__':
-    dataDate = '2019-01-02'
+    dataDate = '2019-01-03'
 #     wanke = DataProcess('000002',dataDate,'D')
 #     wanke.makeGenData()
 #     wanke.saveAsGeneratedData()
@@ -402,12 +406,13 @@ if __name__ == '__main__':
 #     codeList = hs300CodeList + myCodeList
 #     codeList = list(set(codeList))
     
-    codeList = ['600030','600036','600061','600893','600498','300033','600547','300383','002716','600109','002353','300059']
+    #codeList = ['600030','600036','600061','600893','600498','300033','600547','300383','002716','600109','002353','300059']
+    codeList = ['002353']
 
 #     sd.downloadStockDataAsCSV(codeList)
 #     sd.updateStockDataForList(codeList, dataDate)
-#     generateMoreDataForAllStocks(codeList, dataDate)
-#     updateGeneratedDataForAllStocks(codeList,dataDate)
+    generateMoreDataForAllStocks(codeList, dataDate)
+    updateGeneratedDataForAllStocks(codeList,dataDate)
     getCurrentTradeReport(codeList,dataDate)
 #     codeList = ['000001','000002','000063']
 #     generateMoreDataForAllStocks(codeList, dataDate)
