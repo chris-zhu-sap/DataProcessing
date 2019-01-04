@@ -96,7 +96,7 @@ def getStockNameByCode(stockCode,dataDate=None):
     dfBasic = getDfFromBasicList(dataDate)
     return dfBasic.ix[stockCode]['name']
 
-def downloadStockDataAsCSV(codeList=None):
+def downloadStockDataAsCSV(codeList=None,date=None):
     df  = getDfFromBasicList()
         
     if(codeList is None):
@@ -113,7 +113,7 @@ def downloadStockDataAsCSV(codeList=None):
             date = str(dateTemp)
             dateToMarket = date[:4] + "-" + date[4:6] + "-" + date[6:]
 
-            myStock = StockData(code,name)
+            myStock = StockData(code,name,date)
             myStock.getKDataAsCSV(DAY, startDate=dateToMarket)
             myStock.getKDataAsCSV(WEEK, startDate=dateToMarket)
             myStock.getKDataAsCSV(MONTH, startDate=dateToMarket)
@@ -190,7 +190,7 @@ def getDelimeter():
         return "/"    
 
 class StockData(object):
-    def __init__(self,stockCode,stockName=None,date=None):        
+    def __init__(self,stockCode,stockName=None,date=None):     
         self.stockCode = stockCode
         self.lenUpdated = 0
         self.setDirNameByDate(date)
