@@ -110,8 +110,8 @@ def downloadStockDataAsCSV(codeList=None,date=None):
             dateTemp = df.ix[code]['timeToMarket']
             name = df.ix[code]['name']
 
-            date = str(dateTemp)
-            dateToMarket = date[:4] + "-" + date[4:6] + "-" + date[6:]
+            dateStr = str(dateTemp)
+            dateToMarket = dateStr[:4] + "-" + dateStr[4:6] + "-" + dateStr[6:]
 
             myStock = StockData(code,name,date)
             myStock.getKDataAsCSV(DAY, startDate=dateToMarket)
@@ -351,31 +351,4 @@ class StockData(object):
             print("[Function: %s line:%d]: %s: file %s is not exists!" % (self.doUpdate.__name__, sys._getframe().f_lineno, logStr, filePath))
             sys.exit()
 
-if __name__ == '__main__':
-    zz500StockListFileUrl  = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000905cons.xls'
-#     dataDate = '2019-01-01'
-    hs300StockListFileUrl  = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000300cons.xls'
-    indexCode, filename= getNameAndCode(hs300StockListFileUrl)
-    hs300CodeList = getChinaStockList(hs300StockListFileUrl, filename)
-    print('The length of hs300CodeList is: %d!' % (len(hs300CodeList)))
-    indexCode, filename= getNameAndCode(zz500StockListFileUrl)
-    zz500CodeList = getChinaStockList(zz500StockListFileUrl, filename)
-    print('The length of zz500CodeList is: %d!' % (len(zz500CodeList)))
-    myCodeList = ['600030','600036','600061','600893','600498','300033','600547','300383','002716','600109','002353','300059']
-    print('The length of myCodeList is: %d %s' % (len(myCodeList)))
-    codeList = hs300CodeList + zz500CodeList + myCodeList
-    codeList = list(set(codeList))
-    print('The length of codeList is: %d' % len(codeList))
-    downloadStockDataAsCSV(codeList)
-#     hs300CodeList = getChinaStockList(hs300StockListFileUrl, filename,dataDate)
-#     updateStockDataForList(hs300CodeList,dataDate,updateDir=True)
-#     updateStockDataForList(codeList,dataDate)
-#     wanke = StockData('000002')
-#     wanke.updateAllKData()
-#     wanke.updateKData(DAY)
-#     wanke.updateKData(WEEK)
-#     wanke.updateKData(MONTH)
-#     wanke.getKDataAsCSV('D', startDate='1991-01-29')
-#     wanke.getKDataAsCSV('W', startDate='1991-01-29')
-#     wanke.getKDataAsCSV('M', startDate='1991-01-29')
-#     print("finish get HS300 data")     
+     

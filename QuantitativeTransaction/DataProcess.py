@@ -251,7 +251,11 @@ class DataProcess(object):
             if(os.path.exists(self.deviationReportFile)):
                 df = pd.read_csv(self.deviationReportFile,encoding="utf-8",dtype={'aCode':str})
             else:
-                print('[Function:%s line:%s stock:%s] Message: deviationReportFile: %s not exits!' %(self.generateDeviationByMACD.__name__,sys._getframe().f_lineno,self.deviationReportFile,self.code))
+                print('[Function:%s line:%s stock:%s] Message: deviationReportFile: %s not exits!' %(self.generateDeviationByMACD.__name__,sys._getframe().f_lineno,self.code,self.deviationReportFile))
+        elif(updateReportForLatestData is False and updateReportForCurrentTradeData is False):
+            if(os.path.exists(self.deviationReportFile)):
+                print('[Function:%s line:%s stock:%s] Message: %s exits, no need to regenerate the file!' %(self.generateDeviationByMACD.__name__,sys._getframe().f_lineno,self.code,self.deviationReportFile))
+                return
         
         oldLength = len(df)
         
@@ -387,34 +391,3 @@ class DataProcess(object):
         self.generateDeviationByMACD(PERIOD_LIST_DEV)
         
 
-if __name__ == '__main__':
-    dataDate = '2019-01-03'
-#     wanke = DataProcess('000002',dataDate,'D')
-#     wanke.makeGenData()
-#     wanke.saveAsGeneratedData()
-#     generateIncicatorForAllPeriod('000002',dataDate)
-  
-#     hs300StockListFileUrl  = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000300cons.xls'
-#     indexCode, filename= sd.getNameAndCode(hs300StockListFileUrl)
-#     hs300CodeList = sd.getChinaStockList(hs300StockListFileUrl, filename)
-      
-#     zz500StockListFileUrl  = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000905cons.xls'
-#     indexCode, filename= sd.getNameAndCode(zz500StockListFileUrl)
-#     zz500CodeList = sd.getChinaStockList(zz500StockListFileUrl, filename)
-      
-#     myCodeList = ['600030','600036','600061','600893','600498','300033','600547','300383','002716','600109','002353','300059']
-#     codeList = hs300CodeList + myCodeList
-#     codeList = list(set(codeList))
-    
-    #codeList = ['600030','600036','600061','600893','600498','300033','600547','300383','002716','600109','002353','300059']
-    codeList = ['002353']
-
-#     sd.downloadStockDataAsCSV(codeList)
-#     sd.updateStockDataForList(codeList, dataDate)
-    generateMoreDataForAllStocks(codeList, dataDate)
-    updateGeneratedDataForAllStocks(codeList,dataDate)
-    getCurrentTradeReport(codeList,dataDate)
-#     codeList = ['000001','000002','000063']
-#     generateMoreDataForAllStocks(codeList, dataDate)
-#     updateGeneratedDataForAllStocks(codeList,dataDate)
-#     getCurrentTradeReport(codeList,dataDate)
