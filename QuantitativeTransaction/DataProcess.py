@@ -38,11 +38,11 @@ PERIOD_LIST_MA = [5,10,20,30,60,120,250]
 
 PERIOD_LIST_DEV = [5,10,20,30,60,120,250]
 
-def generateMoreDataForAllPeriod(stockCode=None, dataDirByDate=None):
-    if(stockCode is not None and dataDirByDate is not None):
+def generateMoreDataForAllPeriod(stockCode=None):
+    if(stockCode is not None):
         for period in PERIOD_LIST_ALL:
-            stockData = sd.StockData(stockCode,date=dataDirByDate)          
-            stockObj = DataProcess(stockCode,stockData.getStockName(),dataDirByDate,period)
+            stockData = sd.StockData(stockCode)          
+            stockObj = DataProcess(stockCode,stockData.getStockName(),period)
             stockObj.makeGenData()
             stockObj.saveAsGeneratedData()
             print("[Function:%s line:%s] Message: generate data for stock:%s of period:%s has been done!" % (generateMoreDataForAllPeriod.__name__, sys._getframe().f_lineno, stockCode, period))
@@ -50,22 +50,22 @@ def generateMoreDataForAllPeriod(stockCode=None, dataDirByDate=None):
         print("[Function:%s line:%s] Error: Parameters should not be empty!" % (generateMoreDataForAllPeriod.__name__, sys._getframe().f_lineno))
         sys.exit()
 
-def generateMoreDataForAllStocks(stockList, dataDirByDate):
-    if(stockList is None or not len(stockList) or dataDirByDate is None):
+def generateMoreDataForAllStocks(stockList):
+    if(stockList is None or not len(stockList)):
         print("[Function:%s line:%s] Error: Parameters should not be empty!" % (generateMoreDataForAllStocks.__name__, sys._getframe().f_lineno))
         sys.exit()          
     else:
         for code in stockList:
-            generateMoreDataForAllPeriod(code, dataDirByDate)
+            generateMoreDataForAllPeriod(code)
             
-def updateGeneratedDataForAllPeriod(stockCode=None, dataDirByDate=None):
-    if(stockCode is not None and dataDirByDate is not None):
+def updateGeneratedDataForAllPeriod(stockCode=None):
+    if(stockCode is not None):
         for period in PERIOD_LIST_ALL:
-            stock = sd.StockData(stockCode,date=dataDirByDate)
+            stock = sd.StockData(stockCode)
             stock.updateKData(period)
             length = stock.getDataLenUpdated()
             if(length > 0):
-                pStock = DataProcess(stockCode,stock.getStockName(),dataDirByDate,period)
+                pStock = DataProcess(stockCode,stock.getStockName(),period)
                 pStock.readData()
 #                 pStock.addMA(PERIOD_LIST_MA)
                 pStock.addMACD()
@@ -78,23 +78,23 @@ def updateGeneratedDataForAllPeriod(stockCode=None, dataDirByDate=None):
         print("[Function:%s line:%s] Error: Parameters should not be empty!" % (updateGeneratedDataForAllPeriod.__name__, sys._getframe().f_lineno))
         sys.exit()
         
-def updateGeneratedDataForAllStocks(stockList=None, dataDirByDate=None):
-    if(stockList is None or not len(stockList) or dataDirByDate is None):
+def updateGeneratedDataForAllStocks(stockList=None):
+    if(stockList is None or not len(stockList)):
         print("[Function:%s line:%s] Error: Parameters should not be empty!" % (updateGeneratedDataForAllPeriod.__name__, sys._getframe().f_lineno))
         sys.exit()          
     else:
         for code in stockList:
-            updateGeneratedDataForAllPeriod(code, dataDirByDate)
+            updateGeneratedDataForAllPeriod(code)
             
-def getCurrentTradeReportForAllPeriod(stockCode=None, dataDirByDate=None,dfData=None):    
-    if(stockCode is not None and dataDirByDate is not None and dfData is not None):
+def getCurrentTradeReportForAllPeriod(stockCode=None, dfData=None):    
+    if(stockCode is not None and dfData is not None):
         for period in PERIOD_LIST_ALL:
             length = len(dfData)
             if(length):
-                stock = sd.StockData(stockCode,date=dataDirByDate)
+                stock = sd.StockData(stockCode)
                 dfMerged = stock.mergeData(dfData,period)
                 dfMerged = dfMerged.reset_index(drop = True)
-                pStock = DataProcess(stockCode,stock.getStockName(),dataDirByDate,period)
+                pStock = DataProcess(stockCode,stock.getStockName(),period)
 #                 pStock.addMA(PERIOD_LIST_MA)
                 pStock.setDfData(dfMerged)
                 pStock.addMACD()
@@ -104,14 +104,14 @@ def getCurrentTradeReportForAllPeriod(stockCode=None, dataDirByDate=None,dfData=
         print("[Function:%s line:%s] Error: Parameters should not be empty!" % (getCurrentTradeReportForAllPeriod.__name__, sys._getframe().f_lineno))
         sys.exit()
             
-def getCurrentTradeReport(stockList=None, dataDirByDate=None):
-    if(stockList is None or not len(stockList) or dataDirByDate is None):
+def getCurrentTradeReport(stockList=None):
+    if(stockList is None or not len(stockList)):
         print("[Function:%s line:%s] Error: Parameters should not be empty!" % (getCurrentTradeReport.__name__, sys._getframe().f_lineno))
         sys.exit()          
     else:
         dfCurrent = ts.get_today_all()
         #pytz.timezone('Asia/Shanghai') #东八区
-        today = datetime.datetime.fromtimestamp(int(time.time()), pytz.timezone('Asia/Shanghai')).strftime('%Y-%m-%d')
+        today = sd.getCurrentShanghaiDate()
 
         for code in stockList:
             df = dfCurrent[dfCurrent['code'] == code]
@@ -124,12 +124,14 @@ def getCurrentTradeReport(stockList=None, dataDirByDate=None):
                         'volume':[df['volume'].values[0]]
                     }
                 df = pd.DataFrame(data)
-                getCurrentTradeReportForAllPeriod(code, dataDirByDate,df)
+                getCurrentTradeReportForAllPeriod(code, df)
             else:
                 print("[Function:%s line:%s] Message: data for code:%s not exists!" % (getCurrentTradeReport.__name__, sys._getframe().f_lineno,code))  
 
 class DataProcess(object):
-    def __init__(self, stockCode, stockName,dataDirByDate,period=DAY):
+    def __init__(self, stockCode, stockName,period=DAY):
+        sdate = sd.SingletonDate.GetInstance()
+        dataDirByDate = sdate.date
         self.dataPath = dataDirByDate + self.getDelimeter() + stockCode + self.getDelimeter()
         self.code = stockCode
         self.name = stockName
@@ -252,10 +254,9 @@ class DataProcess(object):
                 df = pd.read_csv(self.deviationReportFile,encoding="utf-8",dtype={'aCode':str})
             else:
                 print('[Function:%s line:%s stock:%s] Message: deviationReportFile: %s not exits!' %(self.generateDeviationByMACD.__name__,sys._getframe().f_lineno,self.code,self.deviationReportFile))
-        elif(updateReportForLatestData is False and updateReportForCurrentTradeData is False):
-            if(os.path.exists(self.deviationReportFile)):
-                print('[Function:%s line:%s stock:%s] Message: %s exits, no need to regenerate the file!' %(self.generateDeviationByMACD.__name__,sys._getframe().f_lineno,self.code,self.deviationReportFile))
-                return
+        elif(updateReportForLatestData is False and updateReportForCurrentTradeData is False and os.path.exists(self.deviationReportFile)):
+            print('[Function:%s line:%s stock:%s] Message: %s exits, no need to regenerate the file!' %(self.generateDeviationByMACD.__name__,sys._getframe().f_lineno,self.code,self.deviationReportFile))
+            return
         
         oldLength = len(df)
         
@@ -300,7 +301,7 @@ class DataProcess(object):
                                and index != indexLastDay):
                                 data = {'aCode':[self.code],
                                         'aName':[self.name],
-                                        'aType':['底背离'],
+                                        'aType':['dif底背离'],
                                         'aperiod':[period],
                                         'dateCurrent':[dataDf.at[indexLastDay,'date']],
                                         'dateOfLastDif':[dataDf.at[index,'date']],
@@ -348,7 +349,7 @@ class DataProcess(object):
                                and index != indexLastDay):
                                 data = {'aCode':[self.code],
                                         'aName':[self.name],
-                                        'aType':['顶背离'],
+                                        'aType':['dif顶背离'],
                                         'aperiod':[period],
                                         'dateCurrent':[dataDf.at[indexLastDay,'date']],
                                         'dateOfLastDif':[dataDf.at[index,'date']],

@@ -14,6 +14,7 @@ import re
 import datetime
 import threading
 import shutil
+import pytz
 
 DAY = 'D'
 WEEK = 'W'
@@ -42,9 +43,31 @@ class SingletonBasicStockInfo():
             SingletonBasicStockInfo.mutex.release()
            
         return SingletonBasicStockInfo.instance
+    
+class SingletonDate():
+    instance=None
+    mutex=threading.Lock()
+    def _init__(self):
+        pass
+    @staticmethod
+    def GetInstance(date=None):
+        if(SingletonDate.instance==None):
+            SingletonDate.mutex.acquire()
+            if(SingletonDate.instance==None):
+                SingletonDate.instance=SingletonDate()
+                if date is not None:
+                    SingletonDate.instance.date = date
+                else:
+                    SingletonDate.instance.date = getCurrentShanghaiDate()
+            SingletonDate.mutex.release()
+           
+        return SingletonDate.instance
 
-def getChinaStockList(url, filename, date=None): 
-    filePath = getDataFilePath(date)
+def getCurrentShanghaiDate():
+    return datetime.datetime.fromtimestamp(int(time.time()), pytz.timezone('Asia/Shanghai')).strftime('%Y-%m-%d')
+
+def getChinaStockList(url, filename):
+    filePath = getDataFilePath()
     fileWithPath = filePath + filename
 
     if(os.path.exists(fileWithPath) == False):
@@ -66,16 +89,18 @@ def getNameAndCode(url):
     m = re.match(r'.*(\d{6})(.*)', url)
     return m.group(1), m.group(1) + m.group(2)
 
-def isToday(date):
-    today = time.strftime('%Y-%m-%d')
-    if(date is None or date != today):
-        return False;
-    
-    return True;
+# def isToday(date):
+#     today = time.strftime('%Y-%m-%d')
+#     if(date is None or date != today):
+#         return False;
+#     
+#     return True;
 
-def getDataFilePath(date=None):
+def getDataFilePath():
+    sdate = SingletonDate.GetInstance()
+    date = sdate.date
     if date is None:
-        dirNameByDate = time.strftime('%Y-%m-%d')
+        dirNameByDate = getCurrentShanghaiDate()
     else:
         dirNameByDate = date
         
@@ -83,20 +108,21 @@ def getDataFilePath(date=None):
     
     return os.getcwd() + delemeter + dirNameByDate + delemeter
 
-def getDfFromBasicList(date=None):
-    fileWithPath = getDataFilePath(date) + "stock_basic_list.csv"
-    filePath = getDataFilePath(date)
+def getDfFromBasicList():
+    filePath = getDataFilePath()
     if (os.path.exists(filePath) == False):
-        os.makedirs(filePath)     
+        os.makedirs(filePath)
+
+    fileWithPath = getDataFilePath() + "stock_basic_list.csv"     
     instance = SingletonBasicStockInfo.GetInstance(fileWithPath)
         
     return instance.basicInfoDf
 
-def getStockNameByCode(stockCode,dataDate=None):
-    dfBasic = getDfFromBasicList(dataDate)
+def getStockNameByCode(stockCode):
+    dfBasic = getDfFromBasicList()
     return dfBasic.ix[stockCode]['name']
 
-def downloadStockDataAsCSV(codeList=None,date=None):
+def downloadStockDataAsCSV(codeList=None):
     df  = getDfFromBasicList()
         
     if(codeList is None):
@@ -113,7 +139,7 @@ def downloadStockDataAsCSV(codeList=None,date=None):
             dateStr = str(dateTemp)
             dateToMarket = dateStr[:4] + "-" + dateStr[4:6] + "-" + dateStr[6:]
 
-            myStock = StockData(code,name,date)
+            myStock = StockData(code,name)
             myStock.getKDataAsCSV(DAY, startDate=dateToMarket)
             myStock.getKDataAsCSV(WEEK, startDate=dateToMarket)
             myStock.getKDataAsCSV(MONTH, startDate=dateToMarket)
@@ -121,7 +147,9 @@ def downloadStockDataAsCSV(codeList=None,date=None):
             print("[Function: %s line:%s stock:%s Error:%s] Error happen when download the stock" % (downloadStockDataAsCSV.__name__, sys._getframe().f_lineno, code, e))
             sys.exit()
             
-def updateStockDataForList(codeList=None,date=None,k=None,updateDir=False):
+def updateStockDataForList(codeList=None,k=None,updateDir=False):
+    sdate = SingletonDate.GetInstance()
+    date = sdate.date
     if codeList is None or not len(codeList):
         print("[Function:%s line:%s] The parameter codeList is None or empty!" % (updateStockData.__name__,sys._getframe().f_lineno))
         sys.exit()
@@ -130,12 +158,12 @@ def updateStockDataForList(codeList=None,date=None,k=None,updateDir=False):
         print("[Function:%s line:%s] The parameter date is empty!" % (updateStockData.__name__,sys._getframe().f_lineno))
         sys.exit()
 
-    df  = getDfFromBasicList(date)
+    df  = getDfFromBasicList()
 
     for code in codeList:
         try:
             if code in df.index:
-                updateStockData(code, date, k)
+                updateStockData(code, k)
             else:
                 print("[Function:%s line:%s] The parameter code is not exists now!" % (updateStockData.__name__,sys._getframe().f_lineno))
                 sys.exit()
@@ -144,8 +172,8 @@ def updateStockDataForList(codeList=None,date=None,k=None,updateDir=False):
             sys.exit()
             
     if(updateDir):
-        today = time.strftime('%Y-%m-%d')
-        if(date is None or today !=  date):
+        today = getCurrentShanghaiDate()
+        if(today !=  date):
             delemeter = getDelimeter()
             oldDataPath = os.getcwd() + delemeter + date
             newDataPath = os.getcwd() + delemeter + today
@@ -156,8 +184,8 @@ def updateStockDataForList(codeList=None,date=None,k=None,updateDir=False):
                 sys.exit()
         
         
-def updateStockData(code,date=None,k=None):
-    myStock = StockData(code,date=date)
+def updateStockData(code,k=None):
+    myStock = StockData(code)
     if(k is None):
         myStock.updateAllKData()
     else:
@@ -190,18 +218,18 @@ def getDelimeter():
         return "/"    
 
 class StockData(object):
-    def __init__(self,stockCode,stockName=None,date=None):     
+    def __init__(self,stockCode,stockName=None):     
         self.stockCode = stockCode
         self.lenUpdated = 0
-        self.setDirNameByDate(date)
+        self.setDirNameByDate()
         self.setDataPath()
         self.createDataDir()
         self.setDataFilePath()
-        self.setStockName(stockName,date)
+        self.setStockName(stockName)
     
-    def setStockName(self,stockName=None,date=None):
+    def setStockName(self,stockName=None):
         if stockName is None:
-            self.stockName = getStockNameByCode(self.stockCode,date)
+            self.stockName = getStockNameByCode(self.stockCode)
         else:
             self.stockName = stockName
             
@@ -231,11 +259,15 @@ class StockData(object):
     def getDataLenUpdated(self):
         return self.lenUpdated
 
-    def setDirNameByDate(self,date=None):
-        if(date is None):
-            self.dirNameByDate = time.strftime('%Y-%m-%d')
-        else:
-            self.dirNameByDate = date
+    def setDirNameByDate(self):
+        sdate = SingletonDate.GetInstance()
+        self.dirNameByDate = sdate.date
+        
+    def getDirName(self):
+        if(self.dirNameByDate is None):
+            print("[Function: %s line:%d]: parameter dirNameByDate is empty!" % (self.getDirName.__name__,sys._getframe().f_lineno))
+            sys.exit()
+        return self.dirNameByDate
 
     def setDataFilePath(self):
         self.dayKDataFilePath = self.dataPath + getDelimeter() + self.stockCode + "_k_day.csv"
@@ -243,13 +275,11 @@ class StockData(object):
         self.monthKDataFilePath = self.dataPath + getDelimeter() + self.stockCode + "_k_month.csv"
         self.hourKDataFilePath = self.dataPath + getDelimeter() + self.stockCode + "_k_hour.csv"
             
-    def setDataPath(self,indexDir=None):
-#         dirNameByDate = time.strftime('%Y%m%d')
-        if not indexDir:
-            indexDir = self.dirNameByDate
+    def setDataPath(self):
+        dirName = self.getDirName()
         delemeter = getDelimeter()
-        self.dataPath = os.getcwd() + delemeter + indexDir + delemeter + self.stockCode
-        self.basicStockInfoFilePath = os.getcwd() + delemeter + indexDir + delemeter
+        self.dataPath = os.getcwd() + delemeter + dirName + delemeter + self.stockCode
+        self.basicStockInfoFilePath = os.getcwd() + delemeter + dirName + delemeter
         
     def createDataDir(self):
         isExists = os.path.exists(self.dataPath)
@@ -350,5 +380,3 @@ class StockData(object):
         else:
             print("[Function: %s line:%d]: %s: file %s is not exists!" % (self.doUpdate.__name__, sys._getframe().f_lineno, logStr, filePath))
             sys.exit()
-
-     
