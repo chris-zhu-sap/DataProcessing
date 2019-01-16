@@ -5,25 +5,15 @@ Created on Sep 18, 2017
 '''
 import platform
 import os
-# import numpy as np
 import pandas as pd
 import sys
 import tushare as ts
-import time
-import datetime
-import pytz
-# from matplotlib.pylab import date2num
-# import matplotlib.pyplot as plt  
-# import matplotlib.finance as mpf
-# from matplotlib import ticker
 import StockData as sd
 
 DAY = 'D'
 WEEK = 'W'
 MONTH = 'M'
 HOUR = '60'
-MAX_KDJ = 80
-MIN_KDJ = 15
 
 SHORT = 12
 LONG = 26
@@ -114,7 +104,6 @@ def getCurrentTradeReport(stockList=None):
         sys.exit()          
     else:
         dfCurrent = ts.get_today_all()
-        #pytz.timezone('Asia/Shanghai') #东八区
         today = sd.getCurrentShanghaiDate()
 
         for code in stockList:
@@ -144,25 +133,25 @@ class DataProcess(object):
         if period == DAY:
             self.dataCsvFile = self.dataPath + stockCode + "_k_day.csv"
             self.dataGenCsvFile = self.dataPath + stockCode + "_k_day_gen.csv"
-            self.deviationReportFile = self.dataPath + stockCode + "_sinal_day.csv"
+            self.signalReportFile = self.dataPath + stockCode + "_sinal_day.csv"
             self.reportOfLatest = dataDirByDate + self.getDelimeter() + 'latest_day_report.csv'
             self.reportOfCurrentTrade = dataDirByDate + self.getDelimeter() + 'current_trade_day_report.csv'
         elif period == WEEK:
             self.dataCsvFile = self.dataPath + stockCode + "_k_week.csv"
             self.dataGenCsvFile = self.dataPath + stockCode + "_k_week_gen.csv"
-            self.deviationReportFile = self.dataPath + stockCode + "_sinal_week.csv"
+            self.signalReportFile = self.dataPath + stockCode + "_sinal_week.csv"
             self.reportOfLatest = dataDirByDate + self.getDelimeter() + 'latest_week_report.csv'
             self.reportOfCurrentTrade = dataDirByDate + self.getDelimeter() + 'current_trade_week_report.csv'
         elif period == MONTH:
             self.dataCsvFile = self.dataPath + stockCode + "_k_month.csv"
             self.dataGenCsvFile = self.dataPath + stockCode + "_k_month_gen.csv"
-            self.deviationReportFile = self.dataPath + stockCode + "_sinal_month.csv"
+            self.signalReportFile = self.dataPath + stockCode + "_sinal_month.csv"
             self.reportOfLatest = dataDirByDate + self.getDelimeter() + 'latest_month_report.csv'
             self.reportOfCurrentTrade = dataDirByDate + self.getDelimeter() + 'current_trade_month_report.csv'
         elif period == HOUR:
             self.dataCsvFile = self.dataPath + stockCode + "_k_hour.csv"
             self.dataGenCsvFile = self.dataPath + stockCode + "_k_hour_gen.csv"
-            self.deviationReportFile = self.dataPath + stockCode + "_sinal_hour.csv"
+            self.signalReportFile = self.dataPath + stockCode + "_sinal_hour.csv"
             self.reportOfLatest = dataDirByDate + self.getDelimeter() + 'latest_hour_report.csv'
             self.reportOfCurrentTrade = dataDirByDate + self.getDelimeter() + 'current_trade_hour_report.csv'
         else:
@@ -274,21 +263,21 @@ class DataProcess(object):
         dfCurrent = pd.DataFrame()
         if(updateReportForCurrentTradeData):
             if(os.path.exists(self.reportOfCurrentTrade)):
-                dfCurrent = pd.read_csv(self.reportOfCurrentTrade,encoding="utf-8",dtype={'aCode':str})
+                dfCurrent = pd.read_csv(self.reportOfCurrentTrade,encoding="utf-8",dtype={'code':str})
             
         dfLatest = pd.DataFrame()
         if(updateReportForLatestData):
             if(os.path.exists(self.reportOfLatest)):
-                dfLatest = pd.read_csv(self.reportOfLatest,encoding="utf-8",dtype={'aCode':str})
+                dfLatest = pd.read_csv(self.reportOfLatest,encoding="utf-8",dtype={'code':str})
 
         df = pd.DataFrame()
         if(Update):
-            if(os.path.exists(self.deviationReportFile)):
-                df = pd.read_csv(self.deviationReportFile,encoding="utf-8",dtype={'aCode':str})
+            if(os.path.exists(self.signalReportFile)):
+                df = pd.read_csv(self.signalReportFile,encoding="utf-8",dtype={'code':str})
             else:
-                print('[Function:%s line:%s stock:%s] Message: deviationReportFile: %s not exits!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code,self.deviationReportFile))
-        elif(updateReportForLatestData is False and updateReportForCurrentTradeData is False and os.path.exists(self.deviationReportFile)):
-            print('[Function:%s line:%s stock:%s] Message: %s exits, no need to regenerate the file!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code,self.deviationReportFile))
+                print('[Function:%s line:%s stock:%s] Message: signalReportFile: %s not exits!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code,self.signalReportFile))
+        elif(updateReportForLatestData is False and updateReportForCurrentTradeData is False and os.path.exists(self.signalReportFile)):
+            print('[Function:%s line:%s stock:%s] Message: %s exits, no need to regenerate the file!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code,self.signalReportFile))
             return
         
         oldLength = len(df)
@@ -332,9 +321,9 @@ class DataProcess(object):
                                and dataDf.at[index,'dif'] < dataDf.at[indexLastDay,'dif'] 
                                and index != indexStart 
                                and index != indexLastDay):
-                                data = {'Code':[self.code],
-                                        'Name':[self.name],
-                                        'Signal':['dif底背离_'+str(period)],
+                                data = {'code':[self.code],
+                                        'name':[self.name],
+                                        'signal':['dif底背离_'+str(period)],
                                         'aDate':[dataDf.at[indexLastDay,'date']]
                                     }
                                 dfPer = pd.DataFrame(data)
@@ -372,9 +361,9 @@ class DataProcess(object):
                                and dataDf.at[index,'dif'] > dataDf.at[indexLastDay,'dif'] 
                                and index != indexStart 
                                and index != indexLastDay):
-                                data = {'Code':[self.code],
-                                        'Name':[self.name],
-                                        'Signal':['dif顶背离_'+str(period)],
+                                data = {'code':[self.code],
+                                        'name':[self.name],
+                                        'signal':['dif顶背离_'+str(period)],
                                         'aDate':[dataDf.at[indexLastDay,'date']]
                                     }
                                 dfPer = pd.DataFrame(data)
@@ -400,7 +389,7 @@ class DataProcess(object):
                           
         if(len(df) > oldLength and updateReportForCurrentTradeData == False):
             df.drop_duplicates(inplace=True,keep='first')
-            df.to_csv(self.deviationReportFile,index=0,float_format=FLOAT_FORMAT2,encoding="utf-8")
+            df.to_csv(self.signalReportFile,index=0,float_format=FLOAT_FORMAT2,encoding="utf-8")
             print('[Function:%s line:%s stock:%s] Add the deviation data has been done !' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code))
         
     def makeGenData(self):
