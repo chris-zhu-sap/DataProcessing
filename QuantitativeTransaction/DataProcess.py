@@ -67,8 +67,10 @@ def updateGeneratedDataForAllPeriod(stockCode=None):
             if(length > 0):
                 pStock = DataProcess(stockCode,stock.getStockName(),period)
                 pStock.readData()
-#                 pStock.addMA(PERIOD_LIST_MA)
+                pStock.addMA(PERIOD_LIST_MA)
                 pStock.addMACD()
+                pStock.addKDJ()
+                pStock.BULL()
                 pStock.saveAsGeneratedData()
                 pStock.generateDeviationByMACD(PERIOD_LIST_DEV,lastNPeriods=length,Update=True,updateReportForLatestData=True)
                 print("[Function:%s line:%s] Message: update generated data for stock:%s of Period:%s has been done!" % (updateGeneratedDataForAllPeriod.__name__, sys._getframe().f_lineno, stockCode, period))
@@ -95,9 +97,11 @@ def getCurrentTradeReportForAllPeriod(stockCode=None, dfData=None):
                 dfMerged = stock.mergeData(dfData,period)
                 dfMerged = dfMerged.reset_index(drop = True)
                 pStock = DataProcess(stockCode,stock.getStockName(),period)
-#                 pStock.addMA(PERIOD_LIST_MA)
                 pStock.setDfData(dfMerged)
+#                 pStock.addMA(PERIOD_LIST_MA)
                 pStock.addMACD()
+#                 pStock.addKDJ()
+#                 pStock.addBULL()
                 pStock.generateDeviationByMACD(PERIOD_LIST_DEV,lastNPeriods=1,updateReportForCurrentTradeData=True)
                 print("[Function:%s line:%s] Message: update generated data for stock:%s of Period:%s has been done!" % (getCurrentTradeReportForAllPeriod.__name__, sys._getframe().f_lineno, stockCode, period))
     else:
@@ -231,6 +235,35 @@ class DataProcess(object):
                 print('Not enough data to generate MACD for code:%s!' %(self.code))
         else:
             print('[Function:%s line:%s stock:%s!] Error: Parameter is invalid!' %(self.addMACD.__name__,sys._getframe().f_lineno,self.code))
+            sys.exit()
+    def addKDJ(self,period=9):
+        if(not self.dfData.empty and period>0):
+#             if len(self.dfData) >= period:
+            lowList = pd.rolling_min(self.dfData['low'],period)
+            lowList.fillna(value=pd.expanding_min(self.dfData['low']),inplace=True)
+            highList = pd.rolling_max(self.dfData['high'],period)
+            highList.fillna(value=pd.expanding_max(self.dfData['high']),inplace=True)
+            rsv = (self.dfData['close']-lowList)/(highList-lowList)*100
+            self.dfData['kdj_k'] = pd.ewma(rsv,com=2)
+            self.dfData['kdj_d'] = pd.ewma(self.dfData['kdj_k'],com=2)
+            self.dfData['kdj_j'] = 3*self.dfData['kdj_k'] - 2*self.dfData['kdj_d']
+#             else:
+#                 print('Not enough data to generate KDJ for code:%s!' %(self.code))
+        else:
+            print('[Function:%s line:%s stock:%s!] Error: Parameter is invalid!' %(self.addKDJ.__name__,sys._getframe().f_lineno,self.code))
+            sys.exit()
+
+    def addBULL(self,period=20,t=2):
+        if(not self.dfData.empty and period>0 and t>0):
+            self.dfData['boll_mid']=self.dfData['close'].rolling(period).mean()
+            self.dfData.fillna(0,inplace=True)
+            stdData=self.dfData['close'].rolling(period).std()
+            stdData.fillna(0,inplace=True)
+            self.dfData['boll_top']=self.dfData['boll_mid']+t*stdData
+            self.dfData['boll_bottom']=self.dfData['boll_mid']-t*stdData
+            self.dfData.fillna(0,inplace=True)
+        else:
+            print('[Function:%s line:%s stock:%s!] Error: Parameter is invalid!' %(self.addBULL.__name__,sys._getframe().f_lineno,self.code))
             sys.exit()
             
     def generateDeviationByMACD(self,periodList,lastNPeriods=None,Update=False,updateReportForLatestData=False,updateReportForCurrentTradeData=False):
@@ -387,8 +420,10 @@ class DataProcess(object):
         
     def makeGenData(self):
         self.readData()
-#         self.addMA(PERIOD_LIST_MA)
+        self.addMA(PERIOD_LIST_MA)
         self.addMACD()
+        self.addKDJ()
+        self.addBULL()
         self.generateDeviationByMACD(PERIOD_LIST_DEV)
         
 
