@@ -70,9 +70,9 @@ def updateGeneratedDataForAllPeriod(stockCode=None):
                 pStock.addMA(PERIOD_LIST_MA)
                 pStock.addMACD()
                 pStock.addKDJ()
-                pStock.BULL()
+                pStock.addBULL()
                 pStock.saveAsGeneratedData()
-                pStock.generateDeviationByMACD(PERIOD_LIST_DEV,lastNPeriods=length,Update=True,updateReportForLatestData=True)
+                pStock.generateExchangeSignal(PERIOD_LIST_DEV,lastNPeriods=length,Update=True,updateReportForLatestData=True)
                 print("[Function:%s line:%s] Message: update generated data for stock:%s of Period:%s has been done!" % (updateGeneratedDataForAllPeriod.__name__, sys._getframe().f_lineno, stockCode, period))
             else:
                 print("[Function:%s line:%s] Message: No updated data for stock:%s of Period:%s!" % (updateGeneratedDataForAllPeriod.__name__, sys._getframe().f_lineno, stockCode, period))
@@ -98,11 +98,11 @@ def getCurrentTradeReportForAllPeriod(stockCode=None, dfData=None):
                 dfMerged = dfMerged.reset_index(drop = True)
                 pStock = DataProcess(stockCode,stock.getStockName(),period)
                 pStock.setDfData(dfMerged)
-#                 pStock.addMA(PERIOD_LIST_MA)
+                pStock.addMA(PERIOD_LIST_MA)
                 pStock.addMACD()
-#                 pStock.addKDJ()
-#                 pStock.addBULL()
-                pStock.generateDeviationByMACD(PERIOD_LIST_DEV,lastNPeriods=1,updateReportForCurrentTradeData=True)
+                pStock.addKDJ()
+                pStock.addBULL()
+                pStock.generateExchangeSignal(PERIOD_LIST_DEV,lastNPeriods=1,updateReportForCurrentTradeData=True)
                 print("[Function:%s line:%s] Message: update generated data for stock:%s of Period:%s has been done!" % (getCurrentTradeReportForAllPeriod.__name__, sys._getframe().f_lineno, stockCode, period))
     else:
         print("[Function:%s line:%s] Error: Parameters should not be empty!" % (getCurrentTradeReportForAllPeriod.__name__, sys._getframe().f_lineno))
@@ -144,25 +144,25 @@ class DataProcess(object):
         if period == DAY:
             self.dataCsvFile = self.dataPath + stockCode + "_k_day.csv"
             self.dataGenCsvFile = self.dataPath + stockCode + "_k_day_gen.csv"
-            self.deviationReportFile = self.dataPath + stockCode + "_deviation_day.csv"
+            self.deviationReportFile = self.dataPath + stockCode + "_sinal_day.csv"
             self.reportOfLatest = dataDirByDate + self.getDelimeter() + 'latest_day_report.csv'
             self.reportOfCurrentTrade = dataDirByDate + self.getDelimeter() + 'current_trade_day_report.csv'
         elif period == WEEK:
             self.dataCsvFile = self.dataPath + stockCode + "_k_week.csv"
             self.dataGenCsvFile = self.dataPath + stockCode + "_k_week_gen.csv"
-            self.deviationReportFile = self.dataPath + stockCode + "_deviation_week.csv"
+            self.deviationReportFile = self.dataPath + stockCode + "_sinal_week.csv"
             self.reportOfLatest = dataDirByDate + self.getDelimeter() + 'latest_week_report.csv'
             self.reportOfCurrentTrade = dataDirByDate + self.getDelimeter() + 'current_trade_week_report.csv'
         elif period == MONTH:
             self.dataCsvFile = self.dataPath + stockCode + "_k_month.csv"
             self.dataGenCsvFile = self.dataPath + stockCode + "_k_month_gen.csv"
-            self.deviationReportFile = self.dataPath + stockCode + "_deviation_month.csv"
+            self.deviationReportFile = self.dataPath + stockCode + "_sinal_month.csv"
             self.reportOfLatest = dataDirByDate + self.getDelimeter() + 'latest_month_report.csv'
             self.reportOfCurrentTrade = dataDirByDate + self.getDelimeter() + 'current_trade_month_report.csv'
         elif period == HOUR:
             self.dataCsvFile = self.dataPath + stockCode + "_k_hour.csv"
             self.dataGenCsvFile = self.dataPath + stockCode + "_k_hour_gen.csv"
-            self.deviationReportFile = self.dataPath + stockCode + "_deviation_hour.csv"
+            self.deviationReportFile = self.dataPath + stockCode + "_sinal_hour.csv"
             self.reportOfLatest = dataDirByDate + self.getDelimeter() + 'latest_hour_report.csv'
             self.reportOfCurrentTrade = dataDirByDate + self.getDelimeter() + 'current_trade_hour_report.csv'
         else:
@@ -266,9 +266,9 @@ class DataProcess(object):
             print('[Function:%s line:%s stock:%s!] Error: Parameter is invalid!' %(self.addBULL.__name__,sys._getframe().f_lineno,self.code))
             sys.exit()
             
-    def generateDeviationByMACD(self,periodList,lastNPeriods=None,Update=False,updateReportForLatestData=False,updateReportForCurrentTradeData=False):
+    def generateExchangeSignal(self,periodList,lastNPeriods=None,Update=False,updateReportForLatestData=False,updateReportForCurrentTradeData=False):
         if(periodList is None or not len(periodList)):
-            print('[Function:%s line:%s stock:%s] Error: Parameter is invalid or data is empty!' %(self.generateDeviationByMACD.__name__,sys._getframe().f_lineno,self.code))
+            print('[Function:%s line:%s stock:%s] Error: Parameter is invalid or data is empty!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code))
             sys.exit()
             
         dfCurrent = pd.DataFrame()
@@ -286,9 +286,9 @@ class DataProcess(object):
             if(os.path.exists(self.deviationReportFile)):
                 df = pd.read_csv(self.deviationReportFile,encoding="utf-8",dtype={'aCode':str})
             else:
-                print('[Function:%s line:%s stock:%s] Message: deviationReportFile: %s not exits!' %(self.generateDeviationByMACD.__name__,sys._getframe().f_lineno,self.code,self.deviationReportFile))
+                print('[Function:%s line:%s stock:%s] Message: deviationReportFile: %s not exits!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code,self.deviationReportFile))
         elif(updateReportForLatestData is False and updateReportForCurrentTradeData is False and os.path.exists(self.deviationReportFile)):
-            print('[Function:%s line:%s stock:%s] Message: %s exits, no need to regenerate the file!' %(self.generateDeviationByMACD.__name__,sys._getframe().f_lineno,self.code,self.deviationReportFile))
+            print('[Function:%s line:%s stock:%s] Message: %s exits, no need to regenerate the file!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code,self.deviationReportFile))
             return
         
         oldLength = len(df)
@@ -304,7 +304,7 @@ class DataProcess(object):
             lastNPeriods = 1
         
         if(dfLength < LONG):
-            print('[Function:%s line:%s stock:%s] Message: Length of data is smaller than parameter LONG: %d!' %(self.generateDeviationByMACD.__name__,sys._getframe().f_lineno,self.code,LONG))
+            print('[Function:%s line:%s stock:%s] Message: Length of data is smaller than parameter LONG: %d!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code,LONG))
         else:
             arraylastNPeriods = range(lastNPeriods)
             for lastPeriod in reversed(arraylastNPeriods):
@@ -332,32 +332,24 @@ class DataProcess(object):
                                and dataDf.at[index,'dif'] < dataDf.at[indexLastDay,'dif'] 
                                and index != indexStart 
                                and index != indexLastDay):
-                                data = {'aCode':[self.code],
-                                        'aName':[self.name],
-                                        'aType':['dif底背离'],
-                                        'aperiod':[period],
-                                        'dateCurrent':[dataDf.at[indexLastDay,'date']],
-                                        'dateOfLastDif':[dataDf.at[index,'date']],
-                                        'difCurrent':[dataDf.at[indexLastDay,'dif']],
-                                        'difLast':[dataDf.at[index,'dif']],
-                                        'deaCurrent':[dataDf.at[indexLastDay,'dea']],
-                                        'deaLast':[dataDf.at[index,'dea']],
-                                        'macdCurrent':[dataDf.at[indexLastDay,'macd']],
-                                        'macdLast':[dataDf.at[index,'macd']]
+                                data = {'Code':[self.code],
+                                        'Name':[self.name],
+                                        'Signal':['dif底背离_'+str(period)],
+                                        'aDate':[dataDf.at[indexLastDay,'date']]
                                     }
                                 dfPer = pd.DataFrame(data)
                                 df = pd.concat([df,dfPer])
-                                print('Add the bottom deviation data for the stock:%s on date:%s of period %d!' %(self.code, dataDf.at[indexLastDay,'date'], period))
+                                print('[Function:%s line:%s stock:%s] Add the bottom deviation data on date:%s of period %d!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code, dataDf.at[indexLastDay,'date'], period))
                                 
                                 if(updateReportForLatestData and lastPeriod == 0 and updateReportForCurrentTradeData == False):
                                     dfLatest = pd.concat([dfLatest,dfPer])
                                     dfLatest.to_csv(self.reportOfLatest,index=0,float_format=FLOAT_FORMAT2,encoding="utf-8")
-                                    print('Add the bottom deviation of latest data for the stock:%s has been done!' %(self.code))
+                                    print('[Function:%s line:%s stock:%s] Add the bottom deviation of latest data has been done!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code))
                                     
                                 if(updateReportForCurrentTradeData and lastPeriod == 0):
                                     dfCurrent = pd.concat([dfCurrent,dfPer])
                                     dfCurrent.to_csv(self.reportOfCurrentTrade,index=0,float_format=FLOAT_FORMAT2,encoding="utf-8")
-                                    print('Add the bottom deviation of current trade data for the stock:%s has been done!' %(self.code))
+                                    print('[Function:%s line:%s stock:%s] Add the bottom deviation of current trade data for the stock:%s has been done!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code))
     
                                 if(not duplicatedFlag):
                                     duplicatedFlag = True
@@ -380,43 +372,36 @@ class DataProcess(object):
                                and dataDf.at[index,'dif'] > dataDf.at[indexLastDay,'dif'] 
                                and index != indexStart 
                                and index != indexLastDay):
-                                data = {'aCode':[self.code],
-                                        'aName':[self.name],
-                                        'aType':['dif顶背离'],
-                                        'aperiod':[period],
-                                        'dateCurrent':[dataDf.at[indexLastDay,'date']],
-                                        'dateOfLastDif':[dataDf.at[index,'date']],
-                                        'difCurrent':[dataDf.at[indexLastDay,'dif']],
-                                        'difLast':[dataDf.at[index,'dif']],
-                                        'deaCurrent':[dataDf.at[indexLastDay,'dea']],
-                                        'deaLast':[dataDf.at[index,'dea']],
-                                        'macdCurrent':[dataDf.at[indexLastDay,'macd']],
-                                        'macdLast':[dataDf.at[index,'macd']]
+                                data = {'Code':[self.code],
+                                        'Name':[self.name],
+                                        'Signal':['dif顶背离_'+str(period)],
+                                        'aDate':[dataDf.at[indexLastDay,'date']]
                                     }
                                 dfPer = pd.DataFrame(data)
                                 df = pd.concat([df,dfPer])
-                                print('Add the top deviation data for the stock:%s on date:%s of period %d!' %(self.code,dataDf.at[indexLastDay,'date'], period))
+                                print('[Function:%s line:%s stock:%s] Add the top deviation data on date:%s of period %d!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code,dataDf.at[indexLastDay,'date'], period))
                                 
                                 if(updateReportForLatestData and lastPeriod == 0 and updateReportForCurrentTradeData == False):
                                     dfLatest = pd.concat([dfLatest,dfPer])
                                     dfLatest.to_csv(self.reportOfLatest,index=0,float_format=FLOAT_FORMAT2,encoding="utf-8")
-                                    print('Add the top deviation of lastest data for the stock:%s has been done!' %(self.code))
+                                    print('[Function:%s line:%s stock:%s] Add the top deviation of latest data has been done!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code))
                                     
                                 if(updateReportForCurrentTradeData and lastPeriod == 0):
                                     dfCurrent = pd.concat([dfCurrent,dfPer])
                                     dfCurrent.to_csv(self.reportOfCurrentTrade,index=0,float_format=FLOAT_FORMAT2,encoding="utf-8")
-                                    print('Add the top deviation of current trade data for the stock:%s has been done!' %(self.code))
+                                    print('[Function:%s line:%s stock:%s] Add the top deviation of current trade data has been done!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code))
     
                                 if(not duplicatedFlag):
                                     duplicatedFlag = True
                                     
                     else:
-                        print('The length of data for stock:%s is too small, no deviation can be found! period:%d, lastPeriod:%d  kPeriod:%s' %(self.code,period,lastPeriod,self.period))
-                
+                        print('[Function:%s line:%s stock:%s] The length of data for stock is too small, no deviation can be found! period:%d, lastPeriod:%d  kPeriod:%s' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code,period,lastPeriod,self.period))
+                # end calculate dif deviation by macd
+                          
         if(len(df) > oldLength and updateReportForCurrentTradeData == False):
             df.drop_duplicates(inplace=True,keep='first')
             df.to_csv(self.deviationReportFile,index=0,float_format=FLOAT_FORMAT2,encoding="utf-8")
-            print('Add the deviation data for the stock:%s has been done !' %(self.code))
+            print('[Function:%s line:%s stock:%s] Add the deviation data has been done !' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code))
         
     def makeGenData(self):
         self.readData()
@@ -424,6 +409,6 @@ class DataProcess(object):
         self.addMACD()
         self.addKDJ()
         self.addBULL()
-        self.generateDeviationByMACD(PERIOD_LIST_DEV)
+        self.generateExchangeSignal(PERIOD_LIST_DEV)
         
 
