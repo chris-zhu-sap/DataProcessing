@@ -358,7 +358,7 @@ class DataProcess(object):
                                 if(updateReportForCurrentTradeData and lastPeriod == 0):
                                     dfCurrent = pd.concat([dfCurrent,dfPer])
                                     dfCurrent.to_csv(self.reportOfCurrentTrade,index=0,float_format=FLOAT_FORMAT2,encoding="utf-8")
-                                    print('[Function:%s line:%s stock:%s] Add the bottom deviation of current trade data for the stock:%s has been done!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code))
+                                    print('[Function:%s line:%s stock:%s] Add the bottom deviation of current trade data for the stock has been done!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code))
     
                                 if(not duplicatedFlag):
                                     duplicatedFlag = True
