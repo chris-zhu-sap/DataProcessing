@@ -26,6 +26,8 @@ PERIOD_LIST_ALL = [DAY,WEEK,MONTH]
 
 PERIOD_LIST_MA = [5,10,20,30,60,120,250]
 
+PERIOD_LIST_VOL_MA = [5,10,20]
+
 PERIOD_LIST_DEV = [5,10,20,30,60,120,250]
 
 def generateMoreDataForAllPeriod(stockCode=None):
@@ -58,6 +60,7 @@ def updateGeneratedDataForAllPeriod(stockCode=None):
                 pStock = DataProcess(stockCode,stock.getStockName(),period)
                 pStock.readData()
                 pStock.addMA(PERIOD_LIST_MA)
+                pStock.addVolumeMA(PERIOD_LIST_VOL_MA)
                 pStock.addMACD()
                 pStock.addKDJ()
                 pStock.addBULL()
@@ -89,6 +92,7 @@ def getCurrentTradeReportForAllPeriod(stockCode=None, dfData=None):
                 pStock = DataProcess(stockCode,stock.getStockName(),period)
                 pStock.setDfData(dfMerged)
                 pStock.addMA(PERIOD_LIST_MA)
+                pStock.addVolumeMA(PERIOD_LIST_VOL_MA)
                 pStock.addMACD()
                 pStock.addKDJ()
                 pStock.addBULL()
@@ -195,6 +199,22 @@ class DataProcess(object):
                 self.dfData[maName] = pd.Series(self.dfData['close']).rolling(period).mean()
                 # pd.rolling_mean(self.dfData['close'], period)
                 print('Add MA%d for %s has been done!' %(period, self.dataCsvFile))
+            else:
+                print('Length of data is smaller than period:%d, can not generate such MA for this period!' %(period))
+            
+        self.dfData.fillna(0,inplace=True)
+        
+    def addVolumeMA(self,periodList):
+        if(periodList is None or not len(periodList)):
+            print('[Function:%s line:%s stock:%s] Error: Parameter is invalid or data is empty!' %(self.addVolumeMA.__name__,sys._getframe().f_lineno,self.code))
+            sys.exit()
+            
+        for period in periodList:
+            if(len(self.dfData) >= period):
+                maName = 'VOLMA' + str(period)
+                self.dfData[maName] = pd.Series(self.dfData['volume']).rolling(period).mean()
+                # pd.rolling_mean(self.dfData['close'], period)
+                print('Add VOL MA%d for %s has been done!' %(period, self.dataCsvFile))
             else:
                 print('Length of data is smaller than period:%d, can not generate such MA for this period!' %(period))
             
@@ -395,6 +415,7 @@ class DataProcess(object):
     def makeGenData(self):
         self.readData()
         self.addMA(PERIOD_LIST_MA)
+        self.addVolumeMA(PERIOD_LIST_VOL_MA)
         self.addMACD()
         self.addKDJ()
         self.addBULL()
