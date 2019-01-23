@@ -29,12 +29,12 @@ ACTION_STRING ={
     }
 
 class ExchangeStrategy(object):
-    def __init__(self, stockCode, stockName):
+    def __init__(self, stockCode, stockName=None,startDate=None,endDate=None):
         self.code = stockCode
-        self.name = stockName
-        self.setDfDayData()
-        self.setDfWeekData()
-        self.setDfMonthData()
+        self.setName(stockName)
+        self.setDfDayData(startDate,endDate)
+        self.setDfWeekData(startDate,endDate)
+        self.setDfMonthData(startDate,endDate)
         self.position = 0
         self.capital = 0
         self.stockAmount = 0
@@ -52,10 +52,31 @@ class ExchangeStrategy(object):
         # 仓位 
         self.position = position
         
-    def setDfWeekData(self):
+    def setName(self,name):
+        if(name is None):
+            self.name = sd.getStockNameByCode(self.code)
+        else:
+            self.name = name
+        
+    def filterData(self,dfData,startDate=None,endDate=None):
+        dfFilterData = pd.DataFrame()
+        if(startDate is None and endDate is None):
+            dfFilterData = dfData
+        elif(startDate is None and endDate is not None):
+            dfFilterData = dfData[dfData['date'] < endDate]
+        elif(endDate is None and startDate is not None):
+            dfFilterData = dfData[dfData['date'] >= startDate]
+        else:
+            dfFilterData = dfData[dfData['date'] >= startDate]
+            dfFilterData = dfFilterData[dfFilterData['date'] < endDate]
+            
+        return dfFilterData
+        
+    def setDfWeekData(self,startDate=None,endDate=None):
         dpWeekObj = dp.DataProcess(self.code, self.name,period=dp.WEEK)
         if(os.path.exists(dpWeekObj.dataGenCsvFile)):
             self.dfWeekGenData = pd.read_csv(dpWeekObj.dataGenCsvFile,encoding="utf-8",dtype={'code':str})
+            self.dfWeekFilterData = self.filterData(self.dfWeekGenData,startDate,endDate)
         else:
             print('[Function:%s line:%s stock:%s] Error: File %s is not exist' %(self.setDfWeekData.__name__, sys._getframe().f_lineno,self.code,dpWeekObj.dataGenCsvFile))
             sys.exit()
@@ -68,10 +89,11 @@ class ExchangeStrategy(object):
         
         self.reportPath = dpWeekObj.dataPath + self.code + '_exchange_report.csv'
 
-    def setDfDayData(self):
+    def setDfDayData(self,startDate=None,endDate=None):
         dpDayObj = dp.DataProcess(self.code, self.name,period=dp.DAY)
         if(os.path.exists(dpDayObj.dataGenCsvFile)):
             self.dfDayGenData = pd.read_csv(dpDayObj.dataGenCsvFile,encoding="utf-8",dtype={'code':str})
+            self.dfDayFilterData = self.filterData(self.dfDayGenData,startDate,endDate)
         else:
             print('[Function:%s line:%s stock:%s] Error: File %s is not exist' %(self.setDfWeekData.__name__, sys._getframe().f_lineno,self.code,dpDayObj.dataGenCsvFile))
             sys.exit()
@@ -84,10 +106,11 @@ class ExchangeStrategy(object):
             
         self.reportPath = dpDayObj.dataPath + self.code + '_exchange_report.csv'
         
-    def setDfMonthData(self):
+    def setDfMonthData(self,startDate=None,endDate=None):
         dpMonthObj = dp.DataProcess(self.code, self.name,period=dp.MONTH)
         if(os.path.exists(dpMonthObj.dataGenCsvFile)):
             self.dfMonthGenData = pd.read_csv(dpMonthObj.dataGenCsvFile,encoding="utf-8",dtype={'code':str})
+            self.dfMonthFilterData = self.filterData(self.dfMonthGenData,startDate,endDate)
         else:
             print('[Function:%s line:%s stock:%s] Error: File %s is not exist' %(self.setDfWeekData.__name__, sys._getframe().f_lineno,self.code,dpMonthObj.dataGenCsvFile))
             sys.exit()
@@ -131,56 +154,57 @@ class ExchangeStrategy(object):
         return False
             
     def exchange(self,startDate=None,endDate=None,initCapital=100000):
-        df = pd.DataFrame()
-        if(startDate is None and endDate is None):
-            df = self.dfDayGenData
-        elif(startDate is None and endDate is not None):
-            df = self.dfDayGenData[self.dfDayGenData['date'] < endDate]
-        elif(endDate is None and startDate is not None):
-            df = self.dfDayGenData[self.dfDayGenData['date'] >= startDate]
-        else:
-            df = self.dfDayGenData[self.dfDayGenData['date'] >= startDate]
-            df = df[df['date'] < endDate]
+        pass
+#         df = pd.DataFrame()
+#         if(startDate is None and endDate is None):
+#             df = self.dfDayGenData
+#         elif(startDate is None and endDate is not None):
+#             df = self.dfDayGenData[self.dfDayGenData['date'] < endDate]
+#         elif(endDate is None and startDate is not None):
+#             df = self.dfDayGenData[self.dfDayGenData['date'] >= startDate]
+#         else:
+#             df = self.dfDayGenData[self.dfDayGenData['date'] >= startDate]
+#             df = df[df['date'] < endDate]
+#             
+#         self.capital = initCapital*self.position 
             
-        self.capital = initCapital*self.position 
-            
-        if(MA_20 in df.columns 
-           and MA_60 in df.columns 
-           and MA_250 in df.columns):
-            # add exchange condition
-            for index in df.index:
-                isMa20Up = self.isMaUp(self.dfDayGenData,MA_20,index)
-                isMa60Up = self.isMaUp(self.dfDayGenData,MA_60,index)
-                isMa250Up = self.isMaUp(self.dfDayGenData,MA_250,index)
-                if(isMa250Up == TRUE):
-                    # 牛市， 持股待涨
-                    # J >= 90 and volumn > VOL20 and 阴线， 卖出                        
-                    if(df.at[index,'kdj_j'] >= 90 
-                       and df.at[index,'volume'] > df.at[index,VOL_MA_20] 
-                       and df.at[index,'close'] < df.at[index,'open']):
-                        self.doAction(SELL, df.at[index,'close'],df.at[index,'date'])
-                        
-                    # J < 25 或者 volume < VOL20 或者 死叉带长下影线， 买入
-                    if(df.at[index,'kdj_j'] < 25 
-                       or df.at[index,'volume'] < df.at[index,VOL_MA_20]
-                       or (df.at[index,'kdj_j'] < df.at[index,'kdj_k'] and self.isLowerShadowLine(df,index))):
-                        self.doAction(BUY, df.at[index,'close'],df.at[index,'date'])
-                elif(isMa20Up == TRUE and isMa60Up == TRUE and isMa250Up == TRUE):
-                    pass
-                elif(isMa20Up == FALSE and isMa60Up == TRUE and isMa250Up == TRUE):
-                    # 牛市， 低位买入
-                    pass
-                elif(isMa20Up == TRUE and isMa60Up == FALSE and isMa250Up == TRUE):
-                    # 牛市， 高抛低吸
-                    pass
+#         if(MA_20 in df.columns 
+#            and MA_60 in df.columns 
+#            and MA_250 in df.columns):
+#             # add exchange condition
+#             for index in df.index:
+#                 isMa20Up = self.isMaUp(self.dfDayGenData,MA_20,index)
+#                 isMa60Up = self.isMaUp(self.dfDayGenData,MA_60,index)
+#                 isMa250Up = self.isMaUp(self.dfDayGenData,MA_250,index)
+#                 if(isMa250Up == TRUE):
+#                     # 牛市， 持股待涨
+#                     # J >= 90 and volumn > VOL20 and 阴线， 卖出                        
+#                     if(df.at[index,'kdj_j'] >= 90 
+#                        and df.at[index,'volume'] > df.at[index,VOL_MA_20] 
+#                        and df.at[index,'close'] < df.at[index,'open']):
+#                         self.doAction(SELL, df.at[index,'close'],df.at[index,'date'])
+#                         
+#                     # J < 25 或者 volume < VOL20 或者 死叉带长下影线， 买入
+#                     if(df.at[index,'kdj_j'] < 25 
+#                        or df.at[index,'volume'] < df.at[index,VOL_MA_20]
+#                        or (df.at[index,'kdj_j'] < df.at[index,'kdj_k'] and self.isLowerShadowLine(df,index))):
+#                         self.doAction(BUY, df.at[index,'close'],df.at[index,'date'])
+#                 elif(isMa20Up == TRUE and isMa60Up == TRUE and isMa250Up == TRUE):
+#                     pass
+#                 elif(isMa20Up == FALSE and isMa60Up == TRUE and isMa250Up == TRUE):
+#                     # 牛市， 低位买入
+#                     pass
+#                 elif(isMa20Up == TRUE and isMa60Up == FALSE and isMa250Up == TRUE):
+#                     # 牛市， 高抛低吸
+#                     pass
 #                 elif(isMa20Up == TRUE and isMa60Up == TRUE and isMa250Up == FALSE):
 #                     # 熊转牛， 高抛低吸，轻仓试盘
 #                     pass
-                else:
-                    #熊市，空仓
-                    self.doAction(SELL, df.at[index,'close'],df.at[index,'date'])
-        else:
-            print('[Function:%s line:%s stock:%s] not enough data to add exchange point!'%(self.exchange.__name__, sys._getframe().f_lineno,self.code))
+#                 else:
+#                     #熊市，空仓
+#                     self.doAction(SELL, df.at[index,'close'],df.at[index,'date'])
+#         else:
+#             print('[Function:%s line:%s stock:%s] not enough data to add exchange point!'%(self.exchange.__name__, sys._getframe().f_lineno,self.code))
             
     def doAction(self,actionType,closePrice,date):
         if(actionType == BUY):
@@ -243,13 +267,13 @@ class ExchangeStrategy(object):
             return commissionCost+transferCost+taxCost
         
                        
-    def getWeekIndex(self,date):
-        df = self.dfWeekGenData[self.dfWeekGenData['date'] <= date]       
-        return df.index[-1]
-
-    def getMonthIndex(self,date):
-        df = self.dfMonthGenData[self.dfMonthGenData['date'] <= date]       
-        return df.index[-1]
+#     def getWeekIndex(self,date):
+#         df = self.dfWeekGenData[self.dfWeekGenData['date'] <= date]       
+#         return df.index[-1]
+# 
+#     def getMonthIndex(self,date):
+#         df = self.dfMonthGenData[self.dfMonthGenData['date'] <= date]       
+#         return df.index[-1]
     
     def isMaUp(self,df,ma,indexCurr):
         if(ma in df.columns):
@@ -268,11 +292,28 @@ class ExchangeStrategy(object):
             print('[Function:%s line:%s] Error: ma:%s is not in the column of dataframe!' %(self.isMaUp.__name__, sys._getframe().f_lineno,ma))
             sys.exit()
             
+class CyclicalStockExchangeStrategy(ExchangeStrategy):
+    def exchange(self,initCapital=100000):
+        pass
+    
+class NoneCyclicalStockExchangeStrategy(ExchangeStrategy):
+    def exchange(self,initCapital=100000):
+        pass
+    
+#具体策略类
+class Context(object):
+    def __init__(self,strategy):
+        self.strategy = strategy
+ 
+    def doExchange(self):
+        self.strategy.exchange()
+        self.strategy.saveExchangeReport()
             
 if __name__ == '__main__':
     sdate = sd.SingletonDate.GetInstance('2019-01-18')
+    startDate = '2009-01-16'
+    endDate = '2019-01-18'
     print('####################### Begin to test ExchangeStrategy ############################')
-    stockExchangeStrategy = ExchangeStrategy('600030','中信证券')
-    stockExchangeStrategy.exchange('2009-01-16','2019-01-16')
-    stockExchangeStrategy.saveExchangeReport()
+    stockExchangeStrategy = Context(ExchangeStrategy('600030',startDate=startDate,endDate=endDate))
+    stockExchangeStrategy.doExchange()
     print('####################### End of testing ExchangeStrategy ############################')

@@ -59,11 +59,7 @@ def updateGeneratedDataForAllPeriod(stockCode=None):
             if(length > 0):
                 pStock = DataProcess(stockCode,stock.getStockName(),period)
                 pStock.readData()
-                pStock.addMA(PERIOD_LIST_MA)
-                pStock.addVolumeMA(PERIOD_LIST_VOL_MA)
-                pStock.addMACD()
-                pStock.addKDJ()
-                pStock.addBULL()
+                pStock.addNormalIndicator()
                 pStock.saveAsGeneratedData()
                 pStock.generateExchangeSignal(PERIOD_LIST_DEV,lastNPeriods=length,Update=True,updateReportForLatestData=True)
                 print("[Function:%s line:%s] Message: update generated data for stock:%s of Period:%s has been done!" % (updateGeneratedDataForAllPeriod.__name__, sys._getframe().f_lineno, stockCode, period))
@@ -91,11 +87,7 @@ def getCurrentTradeReportForAllPeriod(stockCode=None, dfData=None):
                 dfMerged = dfMerged.reset_index(drop = True)
                 pStock = DataProcess(stockCode,stock.getStockName(),period)
                 pStock.setDfData(dfMerged)
-                pStock.addMA(PERIOD_LIST_MA)
-                pStock.addVolumeMA(PERIOD_LIST_VOL_MA)
-                pStock.addMACD()
-                pStock.addKDJ()
-                pStock.addBULL()
+                pStock.addNormalIndicator()
                 pStock.generateExchangeSignal(PERIOD_LIST_DEV,lastNPeriods=1,updateReportForCurrentTradeData=True)
                 print("[Function:%s line:%s] Message: update generated data for stock:%s of Period:%s has been done!" % (getCurrentTradeReportForAllPeriod.__name__, sys._getframe().f_lineno, stockCode, period))
     else:
@@ -283,6 +275,13 @@ class DataProcess(object):
             print('[Function:%s line:%s stock:%s!] Error: Parameter is invalid!' %(self.addBULL.__name__,sys._getframe().f_lineno,self.code))
             sys.exit()
             
+    def addOtherIndicator(self):
+        if(not self.dfData.empty):
+            self.dfData['dif_div_close'] = self.dfData['dif']/self.dfData['close']
+        else:
+            print('[Function:%s line:%s stock:%s!] Error: Data is empty!' %(self.addOtherIndicator.__name__,sys._getframe().f_lineno,self.code))
+            sys.exit()
+            
     def generateExchangeSignal(self,periodList,lastNPeriods=None,Update=False,updateReportForLatestData=False,updateReportForCurrentTradeData=False):
         if(periodList is None or not len(periodList)):
             print('[Function:%s line:%s stock:%s] Error: Parameter is invalid or data is empty!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code))
@@ -422,11 +421,15 @@ class DataProcess(object):
         
     def makeGenData(self):
         self.readData()
+        self.addNormalIndicator()
+        self.generateExchangeSignal(PERIOD_LIST_DEV)
+        
+    def addNormalIndicator(self):
         self.addMA(PERIOD_LIST_MA)
         self.addVolumeMA(PERIOD_LIST_VOL_MA)
         self.addMACD()
         self.addKDJ()
         self.addBULL()
-        self.generateExchangeSignal(PERIOD_LIST_DEV)
+        self.addOtherIndicator()
         
 
