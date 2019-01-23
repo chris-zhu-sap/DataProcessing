@@ -227,17 +227,25 @@ class DataProcess(object):
             sys.exit()
     def addKDJ(self,period=9):
         if(not self.dfData.empty and period>0):
-#             if len(self.dfData) >= period:
-            lowList = pd.rolling_min(self.dfData['low'],period)
-            lowList.fillna(value=pd.expanding_min(self.dfData['low']),inplace=True)
-            highList = pd.rolling_max(self.dfData['high'],period)
-            highList.fillna(value=pd.expanding_max(self.dfData['high']),inplace=True)
+            ############     API in the old version of pandas #####################
+            # pd.rolling_min(self.dfData['low'],period)
+            # lowList.fillna(value=pd.expanding_min(self.dfData['low']),inplace=True)
+            # highList = pd.rolling_max(self.dfData['high'],period)
+            # highList.fillna(value=pd.expanding_max(self.dfData['high']),inplace=True)
+            ############     API in the old version of pandas #####################
+
+            lowList = self.dfData['low'].rolling(window=period,center=False).min()
+            lowList.fillna(value=self.dfData['low'].expanding().min(),inplace=True)
+            highList = self.dfData['high'].rolling(window=period,center=False).max()
+            highList.fillna(value=self.dfData['high'].expanding().max(),inplace=True)
             rsv = (self.dfData['close']-lowList)/(highList-lowList)*100
-            self.dfData['kdj_k'] = pd.ewma(rsv,com=2)
-            self.dfData['kdj_d'] = pd.ewma(self.dfData['kdj_k'],com=2)
+            ############     API in the old version of pandas #####################
+            # self.dfData['kdj_k'] = pd.ewma(rsv,com=2)
+            # self.dfData['kdj_d'] = pd.ewma(self.dfData['kdj_k'],com=2)
+            ############     API in the old version of pandas #####################
+            self.dfData['kdj_k'] = rsv.ewm(com=2).mean()
+            self.dfData['kdj_d'] = self.dfData['kdj_k'].ewm(com=2).mean()
             self.dfData['kdj_j'] = 3*self.dfData['kdj_k'] - 2*self.dfData['kdj_d']
-#             else:
-#                 print('Not enough data to generate KDJ for code:%s!' %(self.code))
         else:
             print('[Function:%s line:%s stock:%s!] Error: Parameter is invalid!' %(self.addKDJ.__name__,sys._getframe().f_lineno,self.code))
             sys.exit()
