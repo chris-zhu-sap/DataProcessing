@@ -39,6 +39,7 @@ class ExchangeStrategy(object):
         self.capital = 0
         self.stockAmount = 0
         self.setPosition()
+        self.getDateListOfMaxPriceInBullMarket()
         self.exchangeDf = pd.DataFrame()
         
     def saveExchangeReport(self):
@@ -71,6 +72,9 @@ class ExchangeStrategy(object):
             dfFilterData = dfFilterData[dfFilterData['date'] < endDate]
             
         return dfFilterData
+    
+    def getDateListOfMaxPriceInBullMarket(self):
+        pass
         
     def setDfWeekData(self,startDate=None,endDate=None):
         dpWeekObj = dp.DataProcess(self.code, self.name,period=dp.WEEK)
@@ -154,18 +158,7 @@ class ExchangeStrategy(object):
         return False
             
     def exchange(self,startDate=None,endDate=None,initCapital=100000):
-        pass
-#         df = pd.DataFrame()
-#         if(startDate is None and endDate is None):
-#             df = self.dfDayGenData
-#         elif(startDate is None and endDate is not None):
-#             df = self.dfDayGenData[self.dfDayGenData['date'] < endDate]
-#         elif(endDate is None and startDate is not None):
-#             df = self.dfDayGenData[self.dfDayGenData['date'] >= startDate]
-#         else:
-#             df = self.dfDayGenData[self.dfDayGenData['date'] >= startDate]
-#             df = df[df['date'] < endDate]
-#             
+        pass          
 #         self.capital = initCapital*self.position 
             
 #         if(MA_20 in df.columns 
@@ -294,7 +287,31 @@ class ExchangeStrategy(object):
             
 class CyclicalStockExchangeStrategy(ExchangeStrategy):
     def exchange(self,initCapital=100000):
+        # after two yeat of max price in bull market
         pass
+    
+    def getDateListOfMaxPriceInBullMarket(self):
+        df = self.dfMonthGenData[self.dfMonthGenData['dif'] > 0]
+        df = df[df['dif_div_close'] > 0.1 ]
+        startIndex = df.index[0]
+        endIndex = df.index[0]-1
+        self.dfDateOfMaxPriceInBullMarket = pd.DataFrame()
+        indexList = []
+        for index in df.index:
+            if(index == (endIndex+1)):
+                endIndex = index
+            else:
+                subDf = pd.Series(self.dfMonthGenData['high'][startIndex:(endIndex+1)])
+                indexList.append(subDf.idxmax())
+                startIndex = index
+                endIndex = index
+         
+        # add last case for date       
+        subDf = pd.Series(self.dfMonthGenData['high'][startIndex:(endIndex+1)])
+        indexList.append(subDf.idxmax())
+                
+        df = self.dfMonthGenData.loc[indexList]
+        print(df['date'])
     
 class NoneCyclicalStockExchangeStrategy(ExchangeStrategy):
     def exchange(self,initCapital=100000):
@@ -307,13 +324,13 @@ class Context(object):
  
     def doExchange(self):
         self.strategy.exchange()
-        self.strategy.saveExchangeReport()
+#         self.strategy.saveExchangeReport()
             
 if __name__ == '__main__':
-    sdate = sd.SingletonDate.GetInstance('2019-01-18')
+    sdate = sd.SingletonDate.GetInstance('2019-01-23')
     startDate = '2009-01-16'
     endDate = '2019-01-18'
     print('####################### Begin to test ExchangeStrategy ############################')
-    stockExchangeStrategy = Context(ExchangeStrategy('600030',startDate=startDate,endDate=endDate))
+    stockExchangeStrategy = Context(CyclicalStockExchangeStrategy('300059',startDate=startDate,endDate=endDate))
     stockExchangeStrategy.doExchange()
     print('####################### End of testing ExchangeStrategy ############################')
