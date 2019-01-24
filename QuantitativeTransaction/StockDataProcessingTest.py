@@ -1,9 +1,9 @@
 import StockData as sd
 import DataProcess as dp
+import ExchangeStrategy as es
 
-# dataDate = '2019-01-07'
-# sdate = sd.SingletonDate.GetInstance('2019-01-09')
-sdate = sd.SingletonDate.GetInstance()
+sdate = sd.SingletonDate.GetInstance('2019-01-18')
+# sdate = sd.SingletonDate.GetInstance()
 # zz500StockListFileUrl  = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000905cons.xls'
 # hs300StockListFileUrl  = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000300cons.xls'
 # indexCode, filename= sd.getNameAndCode(hs300StockListFileUrl)
@@ -14,8 +14,7 @@ sdate = sd.SingletonDate.GetInstance()
 # zz500CodeList = sd.getChinaStockList(zz500StockListFileUrl, filename)
 # print('The length of zz500CodeList is: %d' % (len(zz500CodeList)))
 #  
-myCodeList = ['600030','600036','600061','600893','600498','300033','600547','300383','002716','600109','002353','300059']
-# myCodeList = ['300674']
+myCodeList = ['600030','600036','600061','600893','600498','300033','600547','300383','002716','600109','002353','300059','000738','000002','600837']
 print('The length of myCodeList is: %d' % (len(myCodeList)))
 #   
 # codeList = hs300CodeList + zz500CodeList + myCodeList
@@ -44,11 +43,20 @@ print('The length of codeList is: %d' % len(codeList))
 # wanke = dp.DataProcess('000002',dataDate,'D')
 # wanke.makeGenData()
 # wanke.saveAsGeneratedData()
-# codeList = ['600030','600036','600061','600893','600498','300033','600547','300383','002716','600109','002353','300059']
+
+
 print("######################## Begin of test for DataProcess!#########################")
 sd.downloadStockDataAsCSV(codeList)
 sd.updateStockDataForList(codeList)
 dp.generateMoreDataForAllStocks(codeList)
-dp.updateGeneratedDataForAllStocks(codeList)
-dp.getCurrentTradeReport(codeList)
+# dp.updateGeneratedDataForAllStocks(codeList)
+# dp.getCurrentTradeReport(codeList)
 print("######################## End of test for DataProcess!#########################")
+
+
+# print('####################### Begin to test ExchangeStrategy ############################')
+# startDate = '2009-01-16'
+# endDate = '2019-01-23'
+# stockExchangeStrategy = es.Context(es.CyclicalStockExchangeStrategy('000738',startDate=startDate,endDate=endDate))
+# stockExchangeStrategy.doExchange()
+# print("######################## End of test for ExchangeStrategy!#########################")

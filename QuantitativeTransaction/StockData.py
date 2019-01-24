@@ -191,7 +191,7 @@ def updateStockData(code,k=None):
     else:
         myStock.updateKData(k)
         
-def getNextDate(dateStr):
+def getDateNextYear(dateStr):
     if(dateStr is not None and dateStr != ''):
         newDateStr = ''
         m1 = re.match(r'(\d+)/(\d+)/(\d+)',dateStr)
@@ -205,10 +205,10 @@ def getNextDate(dateStr):
             else:
                 newDateStr = m1.group(3) + '-' + m1.group(1) + '-'  + m1.group(2)
         theDate = datetime.datetime.strptime(newDateStr, '%Y-%m-%d')
-        nextDate = theDate+datetime.timedelta(days=1)
+        nextDate = theDate+datetime.timedelta(years=1)
         return datetime.datetime.strftime(nextDate, "%Y-%m-%d")
     else:
-        print("[Function: %s]: The parameter dateStr is empty!" % getNextDate.__name__)
+        print("[Function: %s]: The parameter dateStr is empty!" % getDateNextYear.__name__)
         sys.exit()
 
 def getDelimeter():

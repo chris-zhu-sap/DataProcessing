@@ -6,8 +6,12 @@ import StockData as sd
 import DataProcess as dp
 import math
 
+MA_5 = 'MA5'
+MA_10 = 'MA10'
 MA_20 = 'MA20'
+MA_30 = 'MA30'
 MA_60 = 'MA60'
+MA_120 = 'MA120'
 MA_250 = 'MA250'
 
 # VOL_MA_5 = 'VOLMA5'
@@ -27,6 +31,25 @@ ACTION_STRING ={
     1:'B',
     0:'S'
     }
+
+SELL_REASON_DIC = {
+    'ma30up_jm90':'ma30 is up and kdj_j > 100',
+    'ma20up_jm90':'ma20 is up and kdj_j > 100',
+    'ma10up_jm80':'ma10 is up and kdj_j > 90',
+    'ma5up_jm80':'ma5 is up and kdj_j > 90',
+    'top_deviation':'top deviation come'
+    }
+
+BUY_REASON_DIC = {
+    'ma30up_jl30':'ma30 is up and kdj_j < 30',
+    'ma20up_jl30':'ma20 is up and kdj_j < 30',
+    'ma10up_jl20':'ma10 is up and kdj_j < 20',
+    'ma5up_jl20':'ma5 is up and kdj_j < 20',
+    'bottom_deviation':'bottom deviation come'
+    }
+
+MaxIndicatorDateList = ['2001-06-29','2007-10-31','2015-06-30']
+pMaxIndicatorDate = pd.Series(MaxIndicatorDateList)
 
 class ExchangeStrategy(object):
     def __init__(self, stockCode, stockName=None,startDate=None,endDate=None):
@@ -157,7 +180,7 @@ class ExchangeStrategy(object):
             
         return False
             
-    def exchange(self,startDate=None,endDate=None,initCapital=100000):
+    def exchange(self,initCapital=100000):
         pass          
 #         self.capital = initCapital*self.position 
             
@@ -199,10 +222,10 @@ class ExchangeStrategy(object):
 #         else:
 #             print('[Function:%s line:%s stock:%s] not enough data to add exchange point!'%(self.exchange.__name__, sys._getframe().f_lineno,self.code))
             
-    def doAction(self,actionType,closePrice,date):
+    def doAction(self,actionType,closePrice,date,reason):
         if(actionType == BUY):
             amount = math.floor(self.capital/closePrice/100)
-            if(amount > 0):
+            if(amount > -1):
                 self.stockAmount = self.stockAmount+amount
                 self.action = actionType
                 stockValue = amount*closePrice*100
@@ -218,7 +241,7 @@ class ExchangeStrategy(object):
                 self.stockAmount = 0
                 self.addRecord(actionType,closePrice,date)
                 
-    def addRecord(self,actionType,price,date):
+    def addRecord(self,actionType,price,date,reason):
         self.profit = 0
         self.profitRate = 0
         if(actionType == SELL):
@@ -242,7 +265,8 @@ class ExchangeStrategy(object):
         'capital':[self.capital],
         'stockAmount':[self.stockAmount],
         'profit':[self.profit],
-        'profitRate':[self.profitRate]
+        'profitRate':[self.profitRate],
+        'xReason':[reason]
         }
         dfPer = pd.DataFrame(data)
         self.exchangeDf = pd.concat([self.exchangeDf,dfPer])
@@ -268,26 +292,164 @@ class ExchangeStrategy(object):
 #         df = self.dfMonthGenData[self.dfMonthGenData['date'] <= date]       
 #         return df.index[-1]
     
-    def isMaUp(self,df,ma,indexCurr):
-        if(ma in df.columns):
+    def isIndicatorUp(self,df,indicator,indexCurr):
+        if(indicator in df.columns):
             index = indexCurr
             while index <= indexCurr and index > 0:
-                if(df.at[index,ma] >0 and df.at[index-1,ma] > 0):
-                    if(df.at[index,ma] > df.at[index-1,ma]):
-                        return TRUE
-                    elif (df.at[index,ma] == df.at[index-1,ma]):
-                        index = index -1
+                if(df.at[index,indicator] > df.at[index-1,indicator]):
+                    return TRUE
+                elif (df.at[index,indicator] == df.at[index-1,indicator]):
+                    if (index-1) > 0:
+                        if(df.at[index-2,indicator] > df.at[index-1,indicator]):
+                            return TRUE
+                        elif(df.at[index-2,indicator] < df.at[index-1,indicator]):
+                            return FALSE
+                        else:
+                            index = index -1
                     else:
-                        return FALSE
+                        index = index -1
                 else:
-                    return UNDEFINED
+                    return FALSE
+                
+            return UNDEFINED
         else:
-            print('[Function:%s line:%s] Error: ma:%s is not in the column of dataframe!' %(self.isMaUp.__name__, sys._getframe().f_lineno,ma))
+            print('[Function:%s line:%s] Error: ma:%s is not in the column of dataframe!' %(self.isIndicatorUp.__name__, sys._getframe().f_lineno,indicator))
             sys.exit()
             
+    def getLastMaxPriceDate(self,curDate):
+        ps = self.psMaxPrice[self.psMaxPrice < curDate]
+        psLength = len(ps)
+        if(psLength > 0):
+            ps = ps.reset_index(drop = True)
+            lastIndex = psLength -1
+            return ps[lastIndex]
+        
+        ps = pMaxIndicatorDate[pMaxIndicatorDate < curDate]
+        psLength = len(ps)
+        if(psLength > 0):
+            ps = ps.reset_index(drop = True)
+            lastIndex = psLength -1
+            return ps[lastIndex]
+        
+        return None
+    
+    def isDifUp(self,df,index):
+        dif = 'dif'
+        while index >0:
+            if(df.at[index,dif] >0 and df.at[index-1,dif] > 0):
+                if(df.at[index,dif] > df.at[index-1,dif]):
+                    return TRUE
+                elif(df.at[index,dif] < df.at[index-1,dif]):
+                    return FALSE
+                else:
+                    if(index-1) > 0:
+                        if(df.at[index-2,dif] > df.at[index-1,dif]):
+                            return TRUE
+                        elif(df.at[index-2,dif] < df.at[index-1,dif]):
+                            return FALSE
+                        else:
+                            index = index -1 
+                    else:
+                        return UNDEFINED
+                    
+            else:
+                return UNDEFINED
+                
+        return UNDEFINED
+    
+    def isDevivation(self,df,date,indicator):
+        df = self.dfMonthSignalData[self.dfMonthSignalData['date'] == date]
+        df = df[df['signal'] == indicator]
+        if len(df) > 0 :
+            return True
+        else:
+            return False
+        
+    def stopGain(self,index,profitRate):
+        length = len(self.exchangeDf)
+        indexLast = length - 1
+        # action = BUY
+        if self.exchangeDf.at[indexLast,'action'] == ACTION_STRING[1]:
+            buyPrice = self.exchangeDf.at[indexLast,'price']
+            currHighPrice = self.dfMonthGenData.at[index,'high']
+            possibleRate = (currHighPrice - buyPrice)/buyPrice
+    
+    def stopLose(self,index,lossRate):
+        pass
+            
 class CyclicalStockExchangeStrategy(ExchangeStrategy):
-    def exchange(self,initCapital=100000):
-        # after two yeat of max price in bull market
+    def exchange(self):
+        # after two year of max price in bull market
+        self.exchangeInLongTerm()
+   
+    def exchangeInLongTerm(self,initCapital=100000):
+        # exchange after one year of max price and dif up
+        dfData = self.dfMonthFilterData
+        difHasBeenUp = FALSE
+        for index in dfData.index:
+            currentDate = dfData.at[index,'date']
+            maxPriceDate = self.getLastMaxPriceDate(currentDate)
+            if difHasBeenUp == FALSE:
+                difHasBeenUp = self.isIndicatorUp(self.dfMonthGenData,'dif',index)
+            
+            
+            if maxPriceDate is not None:
+                dateNextYear = sd.getDateNextYear(maxPriceDate)
+                if currentDate > dateNextYear and difHasBeenUp == TRUE:
+                    if(MA_30 in dfData.columns):
+                        isMa5Up = self.isIndicatorUp(self.dfMonthGenData,MA_5,index)
+                        isMa10Up = self.isIndicatorUp(self.dfMonthGenData,MA_10,index)
+                        isMa20Up = self.isIndicatorUp(self.dfMonthGenData,MA_20,index)
+                        isMa30Up = self.isIndicatorUp(self.dfMonthGenData,MA_30,index)
+                        isMonthTopDeviation = self.isDevivation(self.dfMonthSignalData,dfData.at[index,'date'],'dif_top')
+                        isMonthBottomDeviation = self.isDevivation(self.dfMonthSignalData,dfData.at[index,'date'],'dif_bottom')
+                        # 牛市主升段， 不操作
+                        if (isMa5Up == TRUE and isMa10Up == TRUE and isMa20Up == TRUE and isMa30Up == TRUE):
+                            print('##########  牛市主升段， 不操作 #######################')
+                        # 三十月均线向上，低位买入
+                        elif(isMa30Up == TRUE and dfData.at[index,'kdj_j'] < 30):
+                            self.doAction(BUY, dfData.at[index,'close'],dfData.at[index,'date'],BUY_REASON_DIC['ma30up_jl30'])
+                        elif(isMa30Up == TRUE and dfData.at[index,'kdj_j'] > 100):
+                            self.doAction(SELL, dfData.at[index,'close'],dfData.at[index,'date'],SELL_REASON_DIC['ma30up_jm90'])
+                        elif(isMa20Up == TRUE and dfData.at[index,'kdj_j'] < 30):
+                            self.doAction(BUY, dfData.at[index,'close'],dfData.at[index,'date'],BUY_REASON_DIC['ma20up_jl30'])
+                        elif(isMa20Up == TRUE and dfData.at[index,'kdj_j'] > 100):
+                            self.doAction(SELL, dfData.at[index,'close'],dfData.at[index,'date'],SELL_REASON_DIC['ma20up_jm90'])
+                        elif(isMa10Up == TRUE and dfData.at[index,'kdj_j'] < 20):
+                            self.doAction(BUY, dfData.at[index,'close'],dfData.at[index,'date'],BUY_REASON_DIC['ma10up_jl20'])
+                        elif(isMa10Up == TRUE and dfData.at[index,'kdj_j'] > 90):
+                            self.doAction(SELL, dfData.at[index,'close'],dfData.at[index,'date'],SELL_REASON_DIC['ma10up_jm80'])
+                        elif(isMa5Up == TRUE and dfData.at[index,'kdj_j'] < 20):
+                            self.doAction(BUY, dfData.at[index,'close'],dfData.at[index,'date'],BUY_REASON_DIC['ma5up_jl20'])
+                        elif(isMa5Up == TRUE and dfData.at[index,'kdj_j'] > 90):
+                            self.doAction(BUY, dfData.at[index,'close'],dfData.at[index,'date'],SELL_REASON_DIC['ma5up_jm80'])
+                        elif(isMonthTopDeviation):
+                            self.doAction(SELL, dfData.at[index,'close'],dfData.at[index,'date'],SELL_REASON_DIC['top_deviation'])
+                        elif(isMonthBottomDeviation and (isMa5Up == TRUE or isMa10Up == TRUE or isMa20Up == TRUE or isMa30Up == TRUE)):
+                            self.doAction(BUY, dfData.at[index,'close'],dfData.at[index,'date'],BUY_REASON_DIC['bottom_deviation'])
+                        elif(dfData.at[index,'kdj_j'] < 0 and isMa5Up == FALSE and isMa10Up == FALSE and isMa20Up == FALSE and isMa30Up == FALSE):
+                            print('##########  均线向下， 不操作 #######################')
+                        else:
+                            print('##########  情况不明， 不操作 #######################')
+
+                        #止盈，止损
+                        self.stopGain()
+                        self.stopLose()  
+                         
+                    # 次新股， 暂时不处理
+                    else:
+                        print('##########  次新股， 暂时不处理 #######################')
+                # 熊市不到一年，不操作
+                else:
+                    print('##########  熊市不到一年，不操作 #######################')
+                    
+            else:
+                print('Max price Date can\'t be found')
+    
+    def exchangeInMiddleTerm(self,initCapital=100000):
+        pass
+    
+    def exchangeInShortTerm(self,initCapital=100000):
         pass
     
     def getDateListOfMaxPriceInBullMarket(self):
@@ -310,8 +472,9 @@ class CyclicalStockExchangeStrategy(ExchangeStrategy):
         subDf = pd.Series(self.dfMonthGenData['high'][startIndex:(endIndex+1)])
         indexList.append(subDf.idxmax())
                 
-        df = self.dfMonthGenData.loc[indexList]
-        print(df['date'])
+        self.psMaxPrice = self.dfMonthGenData.loc[indexList,'date']
+        
+        print(self.psMaxPrice)
     
 class NoneCyclicalStockExchangeStrategy(ExchangeStrategy):
     def exchange(self,initCapital=100000):
@@ -328,9 +491,9 @@ class Context(object):
             
 if __name__ == '__main__':
     sdate = sd.SingletonDate.GetInstance('2019-01-23')
-    startDate = '2009-01-16'
+    startDate = '2002-01-16'
     endDate = '2019-01-18'
     print('####################### Begin to test ExchangeStrategy ############################')
-    stockExchangeStrategy = Context(CyclicalStockExchangeStrategy('300059',startDate=startDate,endDate=endDate))
+    stockExchangeStrategy = Context(CyclicalStockExchangeStrategy('000738',startDate=startDate,endDate=endDate))
     stockExchangeStrategy.doExchange()
     print('####################### End of testing ExchangeStrategy ############################')

@@ -350,7 +350,8 @@ class DataProcess(object):
                                and index != indexLastDay):
                                 data = {'code':[self.code],
                                         'name':[self.name],
-                                        'signal':['dif底背离_'+str(period)],
+                                        'period':[period],
+                                        'signal':['dif_bottom'],
                                         'aDate':[dataDf.at[indexLastDay,'date']]
                                     }
                                 dfPer = pd.DataFrame(data)
@@ -390,7 +391,8 @@ class DataProcess(object):
                                and index != indexLastDay):
                                 data = {'code':[self.code],
                                         'name':[self.name],
-                                        'signal':['dif顶背离_'+str(period)],
+                                        'period':[period],
+                                        'signal':['dif_top'],
                                         'aDate':[dataDf.at[indexLastDay,'date']]
                                     }
                                 dfPer = pd.DataFrame(data)
