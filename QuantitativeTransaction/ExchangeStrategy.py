@@ -39,7 +39,8 @@ SELL_REASON_DIC = {
     'ma5up_jm80':'ma5 is up and kdj_j > 90',
     'top_deviation':'top deviation come',
     'stop_gain':'stop gaining more',
-    'stop_lose':'stop lose more'
+    'stop_lose':'stop lose more',
+    'bull_market_stopped':'bull market has been stopped'
     }
 
 BUY_REASON_DIC = {
@@ -228,20 +229,22 @@ class ExchangeStrategy(object):
             
     def doAction(self,actionType,price,date,reason):
         if(actionType == BUY):
-            amount = math.floor(self.capital/price/100)
-            if(amount > -1):
+            amount = math.floor(self.cash/price/100)
+            if(amount > 0):
                 self.stockAmount = self.stockAmount+amount
                 self.action = actionType
                 stockValue = amount*price*100
                 self.cost = self.getExchangeCost(stockValue,self.action)
-                self.capital = self.capital - stockValue - self.cost
+                self.cash = self.capital - stockValue - self.cost
+                self.capital = self.capital - self.cost
                 self.addRecord(actionType,price,date,reason)
         else:
             if(self.stockAmount > 0):
                 self.action = actionType
                 stockValue = self.stockAmount*price*100
                 self.cost = self.getExchangeCost(stockValue,self.action)
-                self.capital = self.capital + stockValue - self.cost
+                self.capital = self.cash + stockValue - self.cost
+                self.cash = self.capital
                 self.stockAmount = 0
                 self.addRecord(actionType,price,date,reason)
                 
@@ -256,8 +259,8 @@ class ExchangeStrategy(object):
             
             # get the first buy action index before current sell
             indexCurr = indexCurr + 1
-            originalCapital = self.exchangeDf.at[indexCurr,'stockAmount']*100*self.exchangeDf.at[indexCurr,'price'] + self.exchangeDf.at[indexCurr,'capital'] + self.exchangeDf.at[indexCurr,'cost']
-            self.profit = self.capital - originalCapital
+            originalCapital = self.exchangeDf.at[indexCurr,'stockAmount']*100*self.exchangeDf.at[indexCurr,'price'] + self.exchangeDf.at[indexCurr,'cash'] + self.exchangeDf.at[indexCurr,'cost']
+            self.profit = self.cash - originalCapital
             self.profitRate = self.profit/originalCapital
 
         data = {'aDate':[date],
@@ -267,6 +270,7 @@ class ExchangeStrategy(object):
         'price':[price],
         'cost':[self.cost],
         'capital':[self.capital],
+        'cash':[self.cash],
         'stockAmount':[self.stockAmount],
         'profit':[self.profit],
         'profitRate':[self.profitRate],
@@ -400,8 +404,11 @@ class CyclicalStockExchangeStrategy(ExchangeStrategy):
    
     def exchangeInLongTerm(self,initCapital=100000):
         # exchange after one year of max price and dif up
+        self.capital = initCapital*self.position
+        self.cash = self.capital
         dfData = self.dfMonthFilterData
         difHasBeenUp = FALSE
+        bullMarket = False
         for index in dfData.index:
             currentDate = dfData.at[index,'date']
             maxPriceDate = self.getLastMaxPriceDate(currentDate)
@@ -421,10 +428,19 @@ class CyclicalStockExchangeStrategy(ExchangeStrategy):
                         isMonthBottomDeviation = self.isDevivation(self.dfMonthSignalData,dfData.at[index,'date'],'dif_bottom')
                         # 牛市主升段， 不操作
                         if (isMa5Up == TRUE and isMa10Up == TRUE and isMa20Up == TRUE and isMa30Up == TRUE):
+                            bullMarket = True
                             print('##########  date:%s 牛市主升段， 不操作 #######################'% dfData.at[index,'date'])
                         # 三十月均线向上，低位买入
-                        elif(isMa30Up == TRUE and dfData.at[index,'kdj_j'] < 30):
-                            self.doAction(BUY, dfData.at[index,'close'],dfData.at[index,'date'],BUY_REASON_DIC['ma30up_jl30'])
+                        elif(isMa30Up == TRUE):
+                            if index > 0:
+                                if (self.dfMonthGenData.at[index-1,'kdj_j'] < 30) and (self.dfMonthGenData.at[index-1,'kdj_j'] < self.dfMonthGenData.at[index,'kdj_j']):
+                                    self.doAction(BUY, dfData.at[index,'close'],dfData.at[index,'date'],BUY_REASON_DIC['ma30up_jl30'])
+                                    print('##########  date:%s isMa30Up， 操作 #######################'% dfData.at[index,'date'])
+                                else:
+                                    print('##########  date:%s isMa30Up， 不操作 #######################'% dfData.at[index,'date'])
+                            else:
+                                print('##########  date:%s isMa30Up， index < 1  #######################'% dfData.at[index,'date'])
+                                    
                         elif(isMa30Up == TRUE and dfData.at[index,'kdj_j'] > 100):
                             self.doAction(SELL, dfData.at[index,'close'],dfData.at[index,'date'],SELL_REASON_DIC['ma30up_jm90'])
                         elif(isMa20Up == TRUE and dfData.at[index,'kdj_j'] < 30):
@@ -449,11 +465,19 @@ class CyclicalStockExchangeStrategy(ExchangeStrategy):
                             print('##########  date:%s 情况不明， 不操作 #######################'% dfData.at[index,'date'])
 
                         #止盈，止损
-                        self.stopGainAndLose(dfData,index,GAIN_LOSE_RATE_LIST_MONTH)
+                        if bullMarket == False:
+                            self.stopGainAndLose(dfData,index,GAIN_LOSE_RATE_LIST_MONTH)
                          
                     # 次新股， 暂时不处理
                     else:
                         print('##########  date:%s 次新股， 暂时不处理 #######################'% dfData.at[index,'date'])
+                elif bullMarket == True:
+                    if dfData.at[index,MA_5] > dfData.at[index,'close']:
+                        bullMarket = False
+                        self.doAction(BUY, dfData.at[index,MA_5],dfData.at[index,'date'],SELL_REASON_DIC['bull_market_stopped'])
+                    else:
+                        print('##########  date:%s bull market is ongoing #######################'% dfData.at[index,'date'])
+                    
                 # 熊市不到一年，不操作
                 else:
                     print('##########  date:%s 熊市不到一年，不操作 #######################'% dfData.at[index,'date'])
