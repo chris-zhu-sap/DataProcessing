@@ -37,7 +37,9 @@ SELL_REASON_DIC = {
     'ma20up_jm90':'ma20 is up and kdj_j > 100',
     'ma10up_jm80':'ma10 is up and kdj_j > 90',
     'ma5up_jm80':'ma5 is up and kdj_j > 90',
-    'top_deviation':'top deviation come'
+    'top_deviation':'top deviation come',
+    'stop_gain':'stop gaining more',
+    'stop_lose':'stop lose more'
     }
 
 BUY_REASON_DIC = {
@@ -47,6 +49,8 @@ BUY_REASON_DIC = {
     'ma5up_jl20':'ma5 is up and kdj_j < 20',
     'bottom_deviation':'bottom deviation come'
     }
+
+GAIN_LOSE_RATE_LIST_MONTH = [0.4,-0.2]
 
 MaxIndicatorDateList = ['2001-06-29','2007-10-31','2015-06-30']
 pMaxIndicatorDate = pd.Series(MaxIndicatorDateList)
@@ -222,24 +226,24 @@ class ExchangeStrategy(object):
 #         else:
 #             print('[Function:%s line:%s stock:%s] not enough data to add exchange point!'%(self.exchange.__name__, sys._getframe().f_lineno,self.code))
             
-    def doAction(self,actionType,closePrice,date,reason):
+    def doAction(self,actionType,price,date,reason):
         if(actionType == BUY):
-            amount = math.floor(self.capital/closePrice/100)
+            amount = math.floor(self.capital/price/100)
             if(amount > -1):
                 self.stockAmount = self.stockAmount+amount
                 self.action = actionType
-                stockValue = amount*closePrice*100
+                stockValue = amount*price*100
                 self.cost = self.getExchangeCost(stockValue,self.action)
                 self.capital = self.capital - stockValue - self.cost
-                self.addRecord(actionType,closePrice,date)
+                self.addRecord(actionType,price,date,reason)
         else:
             if(self.stockAmount > 0):
                 self.action = actionType
-                stockValue = self.stockAmount*closePrice*100
+                stockValue = self.stockAmount*price*100
                 self.cost = self.getExchangeCost(stockValue,self.action)
                 self.capital = self.capital + stockValue - self.cost
                 self.stockAmount = 0
-                self.addRecord(actionType,closePrice,date)
+                self.addRecord(actionType,price,date,reason)
                 
     def addRecord(self,actionType,price,date,reason):
         self.profit = 0
@@ -333,49 +337,61 @@ class ExchangeStrategy(object):
         
         return None
     
-    def isDifUp(self,df,index):
-        dif = 'dif'
-        while index >0:
-            if(df.at[index,dif] >0 and df.at[index-1,dif] > 0):
-                if(df.at[index,dif] > df.at[index-1,dif]):
-                    return TRUE
-                elif(df.at[index,dif] < df.at[index-1,dif]):
-                    return FALSE
-                else:
-                    if(index-1) > 0:
-                        if(df.at[index-2,dif] > df.at[index-1,dif]):
-                            return TRUE
-                        elif(df.at[index-2,dif] < df.at[index-1,dif]):
-                            return FALSE
-                        else:
-                            index = index -1 
-                    else:
-                        return UNDEFINED
-                    
-            else:
-                return UNDEFINED
-                
-        return UNDEFINED
+#     def isDifUp(self,df,index):
+#         dif = 'dif'
+#         while index >0:
+#             if(df.at[index,dif] >0 and df.at[index-1,dif] > 0):
+#                 if(df.at[index,dif] > df.at[index-1,dif]):
+#                     return TRUE
+#                 elif(df.at[index,dif] < df.at[index-1,dif]):
+#                     return FALSE
+#                 else:
+#                     if(index-1) > 0:
+#                         if(df.at[index-2,dif] > df.at[index-1,dif]):
+#                             return TRUE
+#                         elif(df.at[index-2,dif] < df.at[index-1,dif]):
+#                             return FALSE
+#                         else:
+#                             index = index -1 
+#                     else:
+#                         return UNDEFINED
+#                     
+#             else:
+#                 return UNDEFINED
+#                 
+#         return UNDEFINED
     
     def isDevivation(self,df,date,indicator):
-        df = self.dfMonthSignalData[self.dfMonthSignalData['date'] == date]
+        df = self.dfMonthSignalData[self.dfMonthSignalData['aDate'] == date]
         df = df[df['signal'] == indicator]
         if len(df) > 0 :
             return True
         else:
             return False
         
-    def stopGain(self,index,profitRate):
+    def stopGainAndLose(self,dfData,index,gainLossRateList):
+        gainRate = gainLossRateList[0]
+        lossRate = gainLossRateList[1]
         length = len(self.exchangeDf)
-        indexLast = length - 1
-        # action = BUY
-        if self.exchangeDf.at[indexLast,'action'] == ACTION_STRING[1]:
-            buyPrice = self.exchangeDf.at[indexLast,'price']
-            currHighPrice = self.dfMonthGenData.at[index,'high']
-            possibleRate = (currHighPrice - buyPrice)/buyPrice
-    
-    def stopLose(self,index,lossRate):
-        pass
+        if length > 0:
+            indexLast = length - 1
+            # action = BUY
+            actionType = self.exchangeDf.at[indexLast,'action']
+            if actionType == ACTION_STRING[1]:
+                buyPrice = self.exchangeDf.at[indexLast,'price']
+                currHighPrice = self.dfMonthGenData.at[index,'high']
+                possibleRate = (currHighPrice - buyPrice)/buyPrice
+                if possibleRate > gainRate:
+                    price = buyPrice*(1+gainRate)
+                    self.doAction(SELL, price,dfData.at[index,'date'],SELL_REASON_DIC['stop_gain'])
+                    return 
+                
+                currLowPrice = self.dfMonthGenData.at[index,'low']   
+                possibleRate = (currLowPrice - buyPrice)/buyPrice   
+                if possibleRate < lossRate:
+                    price = buyPrice*(1+lossRate)
+                    self.doAction(SELL, price,dfData.at[index,'date'],SELL_REASON_DIC['stop_lose'])
+                    return 
             
 class CyclicalStockExchangeStrategy(ExchangeStrategy):
     def exchange(self):
@@ -405,7 +421,7 @@ class CyclicalStockExchangeStrategy(ExchangeStrategy):
                         isMonthBottomDeviation = self.isDevivation(self.dfMonthSignalData,dfData.at[index,'date'],'dif_bottom')
                         # 牛市主升段， 不操作
                         if (isMa5Up == TRUE and isMa10Up == TRUE and isMa20Up == TRUE and isMa30Up == TRUE):
-                            print('##########  牛市主升段， 不操作 #######################')
+                            print('##########  date:%s 牛市主升段， 不操作 #######################'% dfData.at[index,'date'])
                         # 三十月均线向上，低位买入
                         elif(isMa30Up == TRUE and dfData.at[index,'kdj_j'] < 30):
                             self.doAction(BUY, dfData.at[index,'close'],dfData.at[index,'date'],BUY_REASON_DIC['ma30up_jl30'])
@@ -428,20 +444,19 @@ class CyclicalStockExchangeStrategy(ExchangeStrategy):
                         elif(isMonthBottomDeviation and (isMa5Up == TRUE or isMa10Up == TRUE or isMa20Up == TRUE or isMa30Up == TRUE)):
                             self.doAction(BUY, dfData.at[index,'close'],dfData.at[index,'date'],BUY_REASON_DIC['bottom_deviation'])
                         elif(dfData.at[index,'kdj_j'] < 0 and isMa5Up == FALSE and isMa10Up == FALSE and isMa20Up == FALSE and isMa30Up == FALSE):
-                            print('##########  均线向下， 不操作 #######################')
+                            print('##########  date:%s 均线向下， 不操作 #######################'% dfData.at[index,'date'])
                         else:
-                            print('##########  情况不明， 不操作 #######################')
+                            print('##########  date:%s 情况不明， 不操作 #######################'% dfData.at[index,'date'])
 
                         #止盈，止损
-                        self.stopGain()
-                        self.stopLose()  
+                        self.stopGainAndLose(dfData,index,GAIN_LOSE_RATE_LIST_MONTH)
                          
                     # 次新股， 暂时不处理
                     else:
-                        print('##########  次新股， 暂时不处理 #######################')
+                        print('##########  date:%s 次新股， 暂时不处理 #######################'% dfData.at[index,'date'])
                 # 熊市不到一年，不操作
                 else:
-                    print('##########  熊市不到一年，不操作 #######################')
+                    print('##########  date:%s 熊市不到一年，不操作 #######################'% dfData.at[index,'date'])
                     
             else:
                 print('Max price Date can\'t be found')
@@ -474,7 +489,7 @@ class CyclicalStockExchangeStrategy(ExchangeStrategy):
                 
         self.psMaxPrice = self.dfMonthGenData.loc[indexList,'date']
         
-        print(self.psMaxPrice)
+#         print(self.psMaxPrice)
     
 class NoneCyclicalStockExchangeStrategy(ExchangeStrategy):
     def exchange(self,initCapital=100000):
@@ -487,7 +502,7 @@ class Context(object):
  
     def doExchange(self):
         self.strategy.exchange()
-#         self.strategy.saveExchangeReport()
+        self.strategy.saveExchangeReport()
             
 if __name__ == '__main__':
     sdate = sd.SingletonDate.GetInstance('2019-01-23')

@@ -205,7 +205,7 @@ def getDateNextYear(dateStr):
             else:
                 newDateStr = m1.group(3) + '-' + m1.group(1) + '-'  + m1.group(2)
         theDate = datetime.datetime.strptime(newDateStr, '%Y-%m-%d')
-        nextDate = theDate+datetime.timedelta(years=1)
+        nextDate = theDate+datetime.timedelta(days=365)
         return datetime.datetime.strftime(nextDate, "%Y-%m-%d")
     else:
         print("[Function: %s]: The parameter dateStr is empty!" % getDateNextYear.__name__)
