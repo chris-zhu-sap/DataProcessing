@@ -15,6 +15,7 @@ sdate = sd.SingletonDate.GetInstance('2019-01-18')
 # print('The length of zz500CodeList is: %d' % (len(zz500CodeList)))
 #  
 myCodeList = ['600030','600036','600061','600893','600498','300033','600547','300383','002716','600109','002353','300059','000738','000002','600837']
+# myCodeList = ['600030']
 print('The length of myCodeList is: %d' % (len(myCodeList)))
 #   
 # codeList = hs300CodeList + zz500CodeList + myCodeList
@@ -45,18 +46,19 @@ print('The length of codeList is: %d' % len(codeList))
 # wanke.saveAsGeneratedData()
 
 
-print("######################## Begin of test for DataProcess!#########################")
-sd.downloadStockDataAsCSV(codeList)
-sd.updateStockDataForList(codeList)
-dp.generateMoreDataForAllStocks(codeList)
+# print("######################## Begin of test for DataProcess!#########################")
+# sd.downloadStockDataAsCSV(codeList)
+# sd.updateStockDataForList(codeList)
+# dp.generateMoreDataForAllStocks(codeList)
 # dp.updateGeneratedDataForAllStocks(codeList)
 # dp.getCurrentTradeReport(codeList)
-print("######################## End of test for DataProcess!#########################")
+# print("######################## End of test for DataProcess!#########################")
 
-
-# print('####################### Begin to test ExchangeStrategy ############################')
-# startDate = '2009-01-16'
-# endDate = '2019-01-23'
 # stockExchangeStrategy = es.Context(es.CyclicalStockExchangeStrategy('000738',startDate=startDate,endDate=endDate))
 # stockExchangeStrategy.doExchange()
-# print("######################## End of test for ExchangeStrategy!#########################")
+print('####################### Begin to test ExchangeStrategy ############################')
+startDate = '2009-01-16'
+endDate = '2019-01-23'
+es.exchangeForStockList(myCodeList, startDate, endDate)
+print("######################## End of test for ExchangeStrategy!#########################")
+

@@ -20,6 +20,7 @@ LONG = 26
 MID = 9
 
 FLOAT_FORMAT2 = '%.2f'
+FLOAT_FORMAT3 = '%.3f'
 FLOAT_FORMAT4 = '%.4f'
 
 PERIOD_LIST_ALL = [DAY,WEEK,MONTH]
@@ -159,26 +160,31 @@ class DataProcess(object):
             return "\\"
         else:
             return "/"
-        
+    
     def getDfData(self):
         return self.dfData;
+    
+    def getDfOriginalData(self):
+        return self.dfDataOriginal;
     
     def setDfData(self,dfDataNew):
         if(len(dfDataNew) > 0):
             self.dfData = dfDataNew;
+            
+    def resetDfData(self,dfDataNew):
+        if(len(dfDataNew) > 0):
+            self.dfData = dfDataNew
         
     def readData(self):
         if(os.path.exists(self.dataCsvFile)):
             self.dfData = pd.read_csv(self.dataCsvFile)
+            self.dfDataOriginal = self.dfData
         else:
             print('[Function:%s line:%s stock:%s] Error: File %s is not exist' %(self.readData.__name__, sys._getframe().f_lineno,self.code,self.dataCsvFile))
             sys.exit()
-            
-        if(os.path.exists(self.dataGenCsvFile)):
-            os.remove(self.dataGenCsvFile)
         
     def saveAsGeneratedData(self):
-        self.dfData.to_csv(self.dataGenCsvFile,index=0,float_format=FLOAT_FORMAT2,encoding="utf-8")
+        self.dfData.to_csv(self.dataGenCsvFile,index=0,float_format=FLOAT_FORMAT3,encoding="utf-8")
 
     def addMA(self,periodList):
         if(periodList is None or not len(periodList)):
@@ -360,12 +366,12 @@ class DataProcess(object):
                                 
                                 if(updateReportForLatestData and lastPeriod == 0 and updateReportForCurrentTradeData == False):
                                     dfLatest = pd.concat([dfLatest,dfPer])
-                                    dfLatest.to_csv(self.reportOfLatest,index=0,float_format=FLOAT_FORMAT2,encoding="utf-8")
+                                    dfLatest.to_csv(self.reportOfLatest,index=0,float_format=FLOAT_FORMAT3,encoding="utf-8")
                                     print('[Function:%s line:%s stock:%s] Add the bottom deviation of latest data has been done!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code))
                                     
                                 if(updateReportForCurrentTradeData and lastPeriod == 0):
                                     dfCurrent = pd.concat([dfCurrent,dfPer])
-                                    dfCurrent.to_csv(self.reportOfCurrentTrade,index=0,float_format=FLOAT_FORMAT2,encoding="utf-8")
+                                    dfCurrent.to_csv(self.reportOfCurrentTrade,index=0,float_format=FLOAT_FORMAT3,encoding="utf-8")
                                     print('[Function:%s line:%s stock:%s] Add the bottom deviation of current trade data for the stock has been done!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code))
     
                                 if(not duplicatedFlag):
@@ -401,12 +407,12 @@ class DataProcess(object):
                                 
                                 if(updateReportForLatestData and lastPeriod == 0 and updateReportForCurrentTradeData == False):
                                     dfLatest = pd.concat([dfLatest,dfPer])
-                                    dfLatest.to_csv(self.reportOfLatest,index=0,float_format=FLOAT_FORMAT2,encoding="utf-8")
+                                    dfLatest.to_csv(self.reportOfLatest,index=0,float_format=FLOAT_FORMAT3,encoding="utf-8")
                                     print('[Function:%s line:%s stock:%s] Add the top deviation of latest data has been done!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code))
                                     
                                 if(updateReportForCurrentTradeData and lastPeriod == 0):
                                     dfCurrent = pd.concat([dfCurrent,dfPer])
-                                    dfCurrent.to_csv(self.reportOfCurrentTrade,index=0,float_format=FLOAT_FORMAT2,encoding="utf-8")
+                                    dfCurrent.to_csv(self.reportOfCurrentTrade,index=0,float_format=FLOAT_FORMAT3,encoding="utf-8")
                                     print('[Function:%s line:%s stock:%s] Add the top deviation of current trade data has been done!' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code))
     
                                 if(not duplicatedFlag):
@@ -418,7 +424,7 @@ class DataProcess(object):
                           
         if(len(df) > oldLength and updateReportForCurrentTradeData == False):
             df.drop_duplicates(inplace=True,keep='first')
-            df.to_csv(self.signalReportFile,index=0,float_format=FLOAT_FORMAT2,encoding="utf-8")
+            df.to_csv(self.signalReportFile,index=0,float_format=FLOAT_FORMAT3,encoding="utf-8")
             print('[Function:%s line:%s stock:%s] Add the deviation data has been done !' %(self.generateExchangeSignal.__name__,sys._getframe().f_lineno,self.code))
         
     def makeGenData(self):
