@@ -21,7 +21,8 @@ WEEK = 'W'
 MONTH = 'M'
 HOUR = '60'
 
-FLOAT_FORMAT = '%.2f'
+FLOAT_FORMAT = '%.3f'
+UTF_8 = 'utf-8'
 
 class SingletonBasicStockInfo():
     instance=None
@@ -35,11 +36,11 @@ class SingletonBasicStockInfo():
             if(SingletonBasicStockInfo.instance==None):
                 SingletonBasicStockInfo.instance=SingletonBasicStockInfo()
                 if os.path.exists(fileWithPath):
-                    SingletonBasicStockInfo.instance.basicInfoDf = pd.read_csv(fileWithPath,encoding='utf-8',dtype={'code':str})
+                    SingletonBasicStockInfo.instance.basicInfoDf = pd.read_csv(fileWithPath,encoding=UTF_8,dtype={'code':str})
                     SingletonBasicStockInfo.instance.basicInfoDf.set_index('code',inplace=True)
                 else:
                     SingletonBasicStockInfo.instance.basicInfoDf = ts.get_stock_basics()
-                    SingletonBasicStockInfo.instance.basicInfoDf.to_csv(fileWithPath,encoding='utf-8',index ='code')
+                    SingletonBasicStockInfo.instance.basicInfoDf.to_csv(fileWithPath,encoding=UTF_8,index ='code')
             SingletonBasicStockInfo.mutex.release()
            
         return SingletonBasicStockInfo.instance
@@ -78,7 +79,7 @@ def getChinaStockList(url, filename):
         shutil.move(filename,fileWithPath)
 
     if os.path.exists(fileWithPath):
-        df = pd.read_excel(fileWithPath, dtype = {'成分券代码Constituent Code':object},encoding="utf-8")
+        df = pd.read_excel(fileWithPath, dtype = {'成分券代码Constituent Code':object},encoding=UTF_8)
         stockCode = df.iloc[:,4]
         return stockCode.values.tolist()
     else:

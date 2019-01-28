@@ -15,7 +15,7 @@ sdate = sd.SingletonDate.GetInstance('2019-01-18')
 # print('The length of zz500CodeList is: %d' % (len(zz500CodeList)))
 #  
 myCodeList = ['600030','600036','600061','600893','600498','300033','600547','300383','002716','600109','002353','300059','000738','000002','600837']
-# myCodeList = ['600030']
+# myCodeList = ['300059']
 print('The length of myCodeList is: %d' % (len(myCodeList)))
 #   
 # codeList = hs300CodeList + zz500CodeList + myCodeList
