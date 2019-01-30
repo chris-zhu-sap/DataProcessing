@@ -37,20 +37,34 @@ ACTION_STRING ={
     }
 
 SELL_REASON_MONTH_DIC = {
-    0:'stop_lose'
+    0:'stop_lose on bull market',
+    1:'stop_gain on bear market',
+    2:'stop_lose on bear market',
+    3:'kdj_d decreasing and kdj_d > 80 on bull market',
     }
 
 BUY_REASON_MONTH_DIC = {
-    0:'ma_5_will_be_up',
-    1:'cross_last_high_price',
-    2:'kdj_j has been up',
+    0:'ma_5_will_be_up on bear market',
+    1:'cross_last_high_price,stopLosePrice!=0 on bull market',
+    2:'cross_last_high_price,stopLosePrice=0 on bull market',
+    3:'kdj_j has been up on bull market',
     }
 
-LOSE_RATE_MONTH = -0.1
+LOSE_RATE_MONTH_BEAR = -0.1
 
-GAIN_RATE_MONTH_BEAR = 0.1
+LOSE_RATE_MONTH_BULL = -0.2
+
+GAIN_RATE_MONTH = 0.15
 
 UPPER_LOWER_LINE_RATE = 0.5
+
+POSITION_ALL = 1
+POSITION_HALF = 0.5
+POSITION_QUARTER = 0.25
+POSITION_EIGHTH = 0.125
+POSITION_EMPTY = 0
+
+POSITION_FULL_THRESHOLD = 0.9
 
 MaxIndicatorDateList = ['2001-06-29','2007-10-31','2015-06-30']
 pMaxIndicatorDate = pd.Series(MaxIndicatorDateList)
@@ -207,48 +221,63 @@ class ExchangeStrategy(object):
     def exchange(self,initCapital=100000):
         pass          
 
-    def doAction(self,actionType,price,date,reason):
+    def doAction(self,actionType,actionPrice,position,date,reason):
         self.profit = 0
         self.profitRate = 0
         length = len(self.exchangeDf)
         indexLast = length-1
+        originalCapital = self.originalCapital
 
         if(length > 0):
             self.stockAmount = self.exchangeDf.at[indexLast,'stockAmount']
             self.cash = self.exchangeDf.at[indexLast,'cash']
-            self.capital = self.exchangeDf.at[indexLast,'capital']            
-            
+            if self.stockAmount > 0:
+                self.capital = actionPrice*self.stockAmount + self.cash
+            else:
+                self.capital = self.cash
+        
         if(actionType == BUY):
-            amount = math.floor(self.cash/price/100)
-            if(amount > 0):
-                self.stockAmount = self.stockAmount+amount
-                self.action = actionType
-                stockValue = amount*price*100
-                self.cost = self.getExchangeCost(stockValue,self.action)
-                self.cash = self.cash - stockValue - self.cost
-                self.capital = self.capital - self.cost
-                self.addRecord(actionType,price,date,reason)
-                return True
+            cashShouldUse = self.capital * position
+            amountShouldHave = math.floor(cashShouldUse/actionPrice/100)
+            if amountShouldHave > self.stockAmount:
+                amountShouldBuy = amountShouldHave - self.stockAmount
+                stockValue = amountShouldBuy*actionPrice*100
+                self.cost = self.getExchangeCost(stockValue,actionType)
+                cash = self.cash - stockValue - self.cost
+                if cash < 0:
+                    amountShouldBuy = amountShouldBuy - 1
+                if amountShouldBuy > 0:
+                    stockValue = amountShouldBuy*actionPrice*100
+                    self.cost = self.getExchangeCost(stockValue,actionType)
+                    self.cash = self.cash - stockValue - self.cost
+                    self.stockAmount = self.stockAmount+amountShouldBuy
+                    self.action = actionType
+                    self.capital = self.capital - self.cost
+                    self.position =  (self.capital - self.cash)/self.capital
+                    self.profit = self.capital - self.originalCapital
+                    self.profitRate = self.profit/self.originalCapital
+
+                    self.addRecord(actionType,actionPrice,date,reason)
+                    return True
         else:
             if(self.stockAmount > 0):
-                self.action = actionType
-                stockValue = self.stockAmount*price*100
-                self.cost = self.getExchangeCost(stockValue,self.action)
-                self.capital = self.cash + stockValue - self.cost
-                self.cash = self.capital
-                self.stockAmount = 0
-                
-                indexCurr = indexLast
-                while indexCurr >= 0 and indexCurr <= indexLast and (self.exchangeDf.at[indexCurr,'action'] is not ACTION_STRING[actionType]):
-                    indexCurr = indexCurr -1
-                
-                indexCurr = indexCurr + 1
-                originalCapital = self.exchangeDf.at[indexCurr,'stockAmount']*100*self.exchangeDf.at[indexCurr,'price'] + self.exchangeDf.at[indexCurr,'cash'] + self.exchangeDf.at[indexCurr,'cost']
-                self.profit = self.capital - originalCapital
-                self.profitRate = self.profit/originalCapital
-                
-                self.addRecord(actionType,price,date,reason)
-                return True
+                self.capital =  self.cash + self.stockAmount*actionPrice
+                cashShouldUse = self.capital * position
+                amountShouldHave = math.floor(cashShouldUse/actionPrice/100)
+                if amountShouldHave < self.stockAmount:
+                    amountShouldSell = self.stockAmount - amountShouldHave
+                    self.action = actionType
+                    stockValue = amountShouldSell*actionPrice*100
+                    self.stockAmount = self.stockAmount - amountShouldSell
+                    self.cost = self.getExchangeCost(stockValue,actionType)
+                    self.cash = self.cash + stockValue - self.cost
+                    self.capital = self.cash + self.stockAmount*actionPrice - self.cost
+                    self.position = (self.capital - self.cash)/self.capital          
+                    self.profit = self.capital - self.originalCapital
+                    self.profitRate = self.profit/self.originalCapital
+                    
+                    self.addRecord(actionType,actionPrice,date,reason)
+                    return True
             
             return False
                 
@@ -258,6 +287,7 @@ class ExchangeStrategy(object):
         'name':[self.name],
         'action':[ACTION_STRING[actionType]],
         'price':[price],
+        'position':[self.position],
         'cost':[self.cost],
         'capital':[self.capital],
         'cash':[self.cash],
@@ -319,6 +349,19 @@ class ExchangeStrategy(object):
         
         return UNDEFINED
     
+    def isKDJDown(self,df,indicator,indexCurr):
+        if(indicator == dp.KDJ_J or indicator == dp.KDJ_K or indicator == dp.KDJ_D) and indexCurr < (dp.KDJ_PRD-1):
+            return UNDEFINED
+        
+        if (indicator == dp.KDJ_J or indicator == dp.KDJ_K or indicator == dp.KDJ_D):
+            rtValue = self.isIndicatorUp(df,indicator,indexCurr)
+            if rtValue == TRUE:
+                return FALSE
+            if rtValue == FALSE:
+                return TRUE
+        
+        return UNDEFINED
+    
     def isIndicatorUp(self,df,indicator,indexCurr):
         if(indicator in df.columns):
             index = indexCurr
@@ -343,41 +386,27 @@ class ExchangeStrategy(object):
             print('[Function:%s line:%s] Error: ma:%s is not in the column of dataframe!' %(self.isIndicatorUp.__name__, sys._getframe().f_lineno,indicator))
             sys.exit()
  
-    def stopLose(self,dfData,index,lossRate,stopLossPrice):
+    def stopLose(self,dfData,index,lossRate,stopLossPrice,reason):
         length = len(self.exchangeDf)
-        if length > 0:
-            indexLast = length - 1
-            # action = BUY
-            actionType = self.exchangeDf.at[indexLast,'action']
-            if actionType == ACTION_STRING[BUY]:
-                if stopLossPrice is not None:  
-                    rate = (dfData.at[index,dp.DATA_LOW] - stopLossPrice)/ stopLossPrice
-                    if rate < lossRate:
-                        price = stopLossPrice*(1+lossRate)
-                        self.doAction(SELL, price,dfData.at[index,dp.DATA_DATE],SELL_REASON_MONTH_DIC[0])
-                        return True
-                else:
-                    print('[Function:%s line:%s] Error: parameter highPrice should not be none!' %(self.stopLose.__name__, sys._getframe().f_lineno))
-                    sys.exit()
+        if length > 0: 
+            rate = (dfData.at[index,dp.DATA_LOW] - stopLossPrice)/ stopLossPrice
+            if rate < lossRate:
+                price = stopLossPrice*(1+lossRate)
+                return self.doAction(SELL, price,POSITION_EMPTY,dfData.at[index,dp.DATA_DATE],reason)
+        else:
+            return False
                 
         return False
     
-    def stopGain(self,dfData,index,gainRate,stopGainPrice):
+    def stopGain(self,dfData,index,gainRate,stopGainPrice,reason):
         length = len(self.exchangeDf)
-        if length > 0:
-            indexLast = length - 1
-            # action = BUY
-            actionType = self.exchangeDf.at[indexLast,'action']
-            if actionType == ACTION_STRING[BUY]:
-                if stopGainPrice is not None:  
-                    rate = (dfData.at[index,dp.DATA_HIGH] - stopGainPrice)/ stopGainPrice
-                    if rate > gainRate:
-                        price = stopGainPrice*(1+gainRate)
-                        self.doAction(SELL, price,dfData.at[index,dp.DATA_DATE],SELL_REASON_MONTH_DIC[0])
-                        return True
-                else:
-                    print('[Function:%s line:%s] Error: parameter highPrice should not be none!' %(self.stopLose.__name__, sys._getframe().f_lineno))
-                    sys.exit()
+        if length > 0: 
+            rate = (dfData.at[index,dp.DATA_HIGH] - stopGainPrice)/ stopGainPrice
+            if rate > gainRate:
+                price = stopGainPrice*(1+gainRate)
+                return self.doAction(SELL, price,POSITION_EMPTY,dfData.at[index,dp.DATA_DATE],reason)
+        else:
+            return False
                 
         return False
                 
@@ -424,7 +453,7 @@ class ExchangeStrategy(object):
                 return True
             return False
         else:
-            print('[Function:%s line:%s date:%s] Not enough data to know whether ma is up!'% (self.maWillBeUp.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE]))     
+            print('[Function:%s line:%s date:%s code:%s] Not enough data to know whether ma is up!'% (self.maWillBeUp.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))     
     
     def isStatusOnHaveStock(self):
         length = len(self.exchangeDf)
@@ -433,6 +462,26 @@ class ExchangeStrategy(object):
                 return True
 
         return False
+    
+    def isPositionFull(self):
+        length = len(self.exchangeDf)
+        if length > 0:
+            if self.exchangeDf.at[length-1,'position'] > POSITION_FULL_THRESHOLD:
+                return True
+            else:
+                return False
+
+        return False
+    
+    def isPositionEmpty(self):
+        length = len(self.exchangeDf)
+        if length > 0:
+            if self.exchangeDf.at[length-1,'position'] == POSITION_EMPTY:
+                return True
+            else:
+                return False
+
+        return True
     
     def regenerateWeekData(self,date):
         dfWeekData = self.dpWeekObj.getDfOriginalData()
@@ -534,117 +583,12 @@ class CyclicalStockExchangeStrategy(ExchangeStrategy):
         self.cash = self.capital
         dfData = self.dfWeekFilterData
         dfGenData = self.dfWeekGenData
-        bullMarket = FALSE
-        difHasBeenUpCrossDeaBelowZero = False
-        difHasBeenUpCrossDeaAboveZero = False
-        difHasBeenDownCrossDeaBelowZero = False
-        difHasBeenDownCrossDeaAboveZero = False
-        highPrice = 0
-        for index in dfData.index:
-            self.regenerateMonthData(dfData.at[index,dp.DATA_DATE])
-            if difHasBeenUpCrossDeaBelowZero == False:
-                difHasBeenUpCrossDeaBelowZero = self.isDifUpCrossDeaBelowZero(dfGenData,index)
-            if difHasBeenUpCrossDeaAboveZero == False:
-                difHasBeenUpCrossDeaAboveZero = self.isDifUpCrossDeaAboveZero(dfGenData,index)
-            if difHasBeenDownCrossDeaBelowZero == False:
-                difHasBeenDownCrossDeaBelowZero = self.isDifDownCrossDeaBelowZero(dfGenData,index)
-            if difHasBeenDownCrossDeaAboveZero == False:
-                difHasBeenDownCrossDeaAboveZero = self.isDifDownCrossDeaAboveZero(dfGenData,index)
- 
-            if difHasBeenUpCrossDeaBelowZero:
-                difHasBeenDownCrossDeaBelowZero = False
-                difHasBeenDownCrossDeaAboveZero = False
-                if (self.isMaUp(dfGenData, MA_20, index) 
-                    and self.isMaUp(dfGenData, MA_10, index)
-                    and dfData.at[index,dp.MACD_DIF] >= dfData.at[index,dp.MACD_DEA]):
-                    bullMarket = TRUE
-                    #print('##########  date:%s set bull market TRUE case1#######################'% dfData.at[index,dp.DATA_DATE])
-                elif(self.isDifUp(dfGenData, dp.MACD_DIF, index)
-                     and dfData.at[index,dp.MACD_DIF] >= dfData.at[index,dp.MACD_DEA]):
-                    bullMarket = TRUE
-                    #print('##########  date:%s set bull market TRUE case0#######################'% dfData.at[index,dp.DATA_DATE])
-                else:
-                    bullMarket = UNDEFINED
-                    #print('##########  date:%s set bull market UNDEFINED case2#######################'% dfData.at[index,dp.DATA_DATE])
-                 
-            if difHasBeenUpCrossDeaAboveZero and dfData.at[index,dp.MACD_DIF] >= dfData.at[index,dp.MACD_DEA]:
-                difHasBeenDownCrossDeaBelowZero = False
-                difHasBeenDownCrossDeaAboveZero = False
-                if (self.isMaUp(dfGenData, MA_20, index) 
-                    and self.isMaUp(dfGenData, MA_10, index) 
-                    and dfData.at[index,dp.MACD_DIF] >= dfData.at[index,dp.MACD_DEA]):
-                    bullMarket = TRUE
-                    #print('##########  date:%s set bull market TRUE case3#######################'% dfData.at[index,dp.DATA_DATE])
-                else:
-                    bullMarket = UNDEFINED
-                    #print('##########  date:%s set bull market UNDEFINED case4#######################'% dfData.at[index,dp.DATA_DATE])                    
- 
-            if (difHasBeenDownCrossDeaBelowZero
-                or difHasBeenDownCrossDeaAboveZero
-                or dfData.at[index,dp.MACD_DIF] < dfData.at[index,dp.MACD_DEA]):
-                difHasBeenUpCrossDeaBelowZero =False
-                difHasBeenUpCrossDeaAboveZero = False
-                if dfData.at[index,dp.MACD_DIF] < dfData.at[index,dp.MACD_DEA]:
-                    bullMarket = FALSE
-                    #print('##########  date:%s set bull market FALSE case5#######################'% dfData.at[index,dp.DATA_DATE])
-                elif self.isDifUp(dfGenData, dp.MACD_DIF, index):
-                    bullMarket = UNDEFINED
-                    #print('##########  date:%s set bull market UNDEFINED case6#######################'% dfData.at[index,dp.DATA_DATE])
-                else:
-                    bullMarket = FALSE
-                    #print('##########  date:%s set bull market FALSE case7#######################'% dfData.at[index,dp.DATA_DATE])
-
-#             if bullMarket == TRUE:
-#                 if self.isStatusOnHaveStock():
-#                     if(dfData.at[index,dp.DATA_CLOSE] < highPrice):
-#                         self.stopLose(dfData, index, LOSE_RATE_MONTH,highPrice)
-#                         print('[Function:%s line:%s date:%s stock:%s] bull market, status on have stock and price is decreasing, check whether need to stop lose#######################'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
-#                     else:
-#                         highPrice = dfData.at[index,dp.DATA_CLOSE]
-#                         print('[Function:%s line:%s date:%s stock:%s] bull market, status on have stock and price is increading, don\'t do any exchange#######################'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
-#                 else:
-#                     if self.isKDJUp(dfGenData, dp.KDJ_J, index):
-#                         highPrice = dfData.at[index,dp.DATA_CLOSE]
-#                         self.doAction(BUY,dfData.at[index,dp.DATA_CLOSE],dfData.at[index,dp.DATA_DATE],BUY_REASON_MONTH_DIC[2])
-#                         print('[Function:%s line:%s date:%s stock:%s] bull market, status on have no stock, kdj_j has been up, buy the stock'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
-#                     elif(dfData.at[index,dp.DATA_CLOSE] > highPrice):
-#                         if(highPrice != 0):
-#                             highPrice = dfData.at[index,dp.DATA_CLOSE]
-#                             self.doAction(BUY,highPrice,dfData.at[index,dp.DATA_DATE],BUY_REASON_MONTH_DIC[1])
-#                             print('[Function:%s line:%s date:%s stock:%s] bull market, status on have no stock, price up cross high price, buy the stock'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
-#                         else:
-#                             self.doAction(BUY,dfData.at[index,dp.DATA_CLOSE],dfData.at[index,dp.DATA_DATE],BUY_REASON_MONTH_DIC[1])
-#                             highPrice = dfData.at[index,dp.DATA_CLOSE]
-#                             print('[Function:%s line:%s date:%s stock:%s] bull market, status on have no stock, high price equal to zero, buy the stock'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
-#                     else:
-#                         print('[Function:%s line:%s date:%s stock:%s] bull market, status on have no stock, current have no high price, wait for it'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
-#             else:
-#                 if self.maWillBeUp(dfGenData, index, MA_5, 5):
-#                     if self.isStatusOnHaveStock():
-#                         if(dfData.at[index,dp.DATA_CLOSE] < highPrice):
-#                             self.stopLose(dfData, index, LOSE_RATE_MONTH,highPrice)
-#                             print('[Function:%s line:%s date:%s stock:%s] ma_5 will be up, on status of having stock, need to check whether need stop lose!'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
-#                         else:
-#                             highPrice = dfData.at[index,dp.DATA_CLOSE]
-#                         print('[Function:%s line:%s date:%s stock:%s] ma_5 will be up, should have no stock before!'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
-#                     else:
-#                         highPrice = dfData.at[index,dp.DATA_CLOSE]
-#                         self.doAction(BUY, dfData.at[index,dp.DATA_CLOSE],dfData.at[index,dp.DATA_DATE],BUY_REASON_MONTH_DIC[0])
-#                         print('[Function:%s line:%s date:%s stock:%s] ma_5 will be up, status on no stock, buy it!'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
-#                 else:
-#                     if self.isStatusOnHaveStock():
-#                         if dfGenData.at[index,dp.DATA_CLOSE] < dfGenData.at[index-1,dp.DATA_CLOSE]:
-#                             self.stopLose(dfData, index,LOSE_RATE_MONTH, highPrice)
-#                         else:
-#                             highPrice = dfData.at[index,dp.DATA_CLOSE]
-#                             print('[Function:%s line:%s date:%s stock:%s] Not bull market, status on have stock and price is increasing, don\'t do any exchange'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
-#                     else:
-#                         print('[Function:%s line:%s date:%s stock:%s] Not bull market, status on have cash, don\'t do any exchange'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))   
-
     
     def exchangeInLongTerm(self,initCapital=100000):
-        self.capital = initCapital*self.position
+        self.originalCapital = initCapital
+        self.capital = initCapital
         self.cash = self.capital
+        self.position = 0
         dfData = self.dfMonthFilterData
         dfGenData = self.dfMonthGenData
         bullMarket = FALSE
@@ -706,55 +650,50 @@ class CyclicalStockExchangeStrategy(ExchangeStrategy):
                 else:
                     bullMarket = FALSE
                     #print('##########  date:%s set bull market FALSE case7#######################'% dfData.at[index,dp.DATA_DATE])
-
+                    
+                    
             if bullMarket == TRUE:
                 if self.isStatusOnHaveStock():
                     if(dfData.at[index,dp.DATA_LOW] < stopLosePrice):
-                        self.stopLose(dfData, index, LOSE_RATE_MONTH,stopLosePrice)
-                        print('[Function:%s line:%s date:%s stock:%s] bull market, status on have stock and price is decreasing, check whether need to stop lose#######################'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
+                        if self.stopLose(dfData, index, LOSE_RATE_MONTH_BULL,stopLosePrice,SELL_REASON_MONTH_DIC[0]) == False:
+                            if self.isPositionFull() == False and dfData.at[index,dp.DATA_CLOSE] > dfData.at[index,MA_5]:
+                                if self.doAction(BUY,dfData.at[index,dp.DATA_CLOSE],POSITION_ALL,dfData.at[index,dp.DATA_DATE],BUY_REASON_MONTH_DIC[2]):
+                                    stopLosePrice = dfData.at[index,dp.DATA_CLOSE]
+                                else:
+                                    if dfData.at[index,dp.DATA_CLOSE] > stopLosePrice:
+                                        stopLosePrice = dfData.at[index,dp.DATA_CLOSE]
+                            else:
+                                if dfData.at[index,dp.DATA_CLOSE] > stopLosePrice:
+                                    stopLosePrice = dfData.at[index,dp.DATA_CLOSE]                                                               
                     else:
-                        stopLosePrice = dfData.at[index,dp.DATA_CLOSE]
-                        print('[Function:%s line:%s date:%s stock:%s] bull market, status on have stock and price is increading, don\'t do any exchange#######################'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
-                else:
-                    if self.isKDJUp(dfGenData, dp.KDJ_J, index):
-                        if self.doAction(BUY,dfData.at[index,dp.DATA_CLOSE],dfData.at[index,dp.DATA_DATE],BUY_REASON_MONTH_DIC[2]):
-                            stopGainPrice = dfData.at[index,dp.DATA_CLOSE]
-                            stopLosePrice = dfData.at[index,dp.DATA_CLOSE]
-                            print('[Function:%s line:%s date:%s stock:%s] bull market, status on have no stock, kdj_j has been up, buy the stock'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
-                    elif(dfData.at[index,dp.DATA_CLOSE] > stopLosePrice):
-                        if(stopLosePrice != 0):
-                            if self.doAction(BUY,stopLosePrice,dfData.at[index,dp.DATA_DATE],BUY_REASON_MONTH_DIC[1]):
+                        if self.isPositionFull() == False and dfData.at[index,dp.DATA_CLOSE] > dfData.at[index,MA_5]:
+                            if self.doAction(BUY,dfData.at[index,dp.DATA_CLOSE],POSITION_ALL,dfData.at[index,dp.DATA_DATE],BUY_REASON_MONTH_DIC[2]):
                                 stopLosePrice = dfData.at[index,dp.DATA_CLOSE]
-                                stopGainPrice = dfData.at[index,dp.DATA_CLOSE]
-                                print('[Function:%s line:%s date:%s stock:%s] bull market, status on have no stock, price up cross high price, buy the stock'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
+                            else:
+                                if dfData.at[index,dp.DATA_CLOSE] > stopLosePrice:
+                                    stopLosePrice = dfData.at[index,dp.DATA_CLOSE]
                         else:
-                            if self.doAction(BUY,dfData.at[index,dp.DATA_CLOSE],dfData.at[index,dp.DATA_DATE],BUY_REASON_MONTH_DIC[1]):
+                            if dfData.at[index,dp.DATA_CLOSE] > stopLosePrice:
                                 stopLosePrice = dfData.at[index,dp.DATA_CLOSE]
-                                stopGainPrice = dfData.at[index,dp.DATA_CLOSE]
-                                print('[Function:%s line:%s date:%s stock:%s] bull market, status on have no stock, high price equal to zero, buy the stock'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
-                    else:
-                        print('[Function:%s line:%s date:%s stock:%s] bull market, status on have no stock, current have no high price, wait for it'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
+                else:
+                    if(dfData.at[index,dp.DATA_CLOSE] > stopLosePrice):
+                        if(stopLosePrice != 0):
+                            if self.doAction(BUY,stopLosePrice,POSITION_ALL,dfData.at[index,dp.DATA_DATE],BUY_REASON_MONTH_DIC[1]) and dfData.at[index,dp.KDJ_J] < 50:
+                                stopLosePrice = dfData.at[index,dp.DATA_CLOSE]
+                        else:
+                            if self.doAction(BUY,dfData.at[index,dp.DATA_CLOSE],POSITION_ALL,dfData.at[index,dp.DATA_DATE],BUY_REASON_MONTH_DIC[2]):
+                                stopLosePrice = dfData.at[index,dp.DATA_CLOSE]
             else:
                 if self.isStatusOnHaveStock():
-                    if dfGenData.at[index,dp.DATA_HIGH] > stopGainPrice:
-                        self.stopGain(dfData, index,LOSE_RATE_MONTH, stopGainPrice)
-                        print('[Function:%s line:%s date:%s stock:%s] Not bull market, status on have stock and high price more than stop gain price, check whether need to do stop gain'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
-
                     if dfGenData.at[index,dp.DATA_LOW] < stopLosePrice:
-                        self.stopLose(dfData, index,LOSE_RATE_MONTH, stopLosePrice)
-                        print('[Function:%s line:%s date:%s stock:%s] Not bull market, status on have stock and price low is less than stop lose price, check whether need to do stop lose'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
+                        self.stopLose(dfData, index,LOSE_RATE_MONTH_BEAR, stopLosePrice,SELL_REASON_MONTH_DIC[2])
                     else:
                         stopLosePrice = dfData.at[index,dp.DATA_CLOSE]
-                        print('[Function:%s line:%s date:%s stock:%s] Not bull market, status on have stock and price is increasing, set stop lose price as current price'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
                 else:
-                    # end of bear market
                     if ((self.maWillBeUp(dfGenData, index, MA_5, 5) and dfData.at[index,dp.MACD_DIF] < 0) or
-                        # bull market
                         (self.maWillBeUp(dfGenData, index, MA_5, 5) and dfData.at[index,dp.MACD_DIF] > dfData.at[index,dp.MACD_DEA])):  
-                            if self.doAction(BUY, dfData.at[index,dp.DATA_CLOSE],dfData.at[index,dp.DATA_DATE],BUY_REASON_MONTH_DIC[0]):
+                            if self.doAction(BUY, dfData.at[index,dp.DATA_CLOSE],POSITION_ALL,dfData.at[index,dp.DATA_DATE],BUY_REASON_MONTH_DIC[0]):
                                 stopLosePrice = dfData.at[index,dp.DATA_CLOSE]
-                                stopGainPrice = dfData.at[index,dp.DATA_CLOSE]
-                                print('[Function:%s line:%s date:%s stock:%s] ma_5 will be up, status on no stock, buy it!'% (self.exchangeInLongTerm.__name__, sys._getframe().f_lineno,dfData.at[index,dp.DATA_DATE],self.code))
 
     def exchangeInShortTerm(self,initCapital=100000):
         pass
