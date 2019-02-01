@@ -38,21 +38,42 @@ ACTION_STRING ={
 
 SELL_REASON_MONTH_DIC = {
     0:'stop_lose on bull market',
-    1:'stop_gain on bear market',
-    2:'stop_lose on bear market',
+    1:'stop_lose on bear market',
+    2:'stop_gain on bear market',
     3:'kdj_d decreasing and kdj_d > 80 on bull market',
     }
 
 BUY_REASON_MONTH_DIC = {
     0:'ma_5_will_be_up on bear market',
     1:'cross_last_high_price,stopLosePrice!=0 on bull market',
-    2:'cross_last_high_price,stopLosePrice=0 on bull market',
-    3:'kdj_j has been up on bull market',
+    2:'cross_last_high_price,stopLosePrice!=0 on bull market',
+    3:'cross_last_high_price,stopLosePrice=0 on bull market',
+    4:'kdj_j has been up on bull market',
+    }
+
+SELL_REASON_WEEK_DIC = {
+    0:'stop_lose on bull market',
+    1:'stop_lose on bear market',
+    2:'stop lose on undefined market',
+    3:'kdj_d decreasing and kdj_d > 80 on bull market',
+    }
+
+BUY_REASON_WEEK_DIC = {
+    0:'increase the position on bull market',
+    1:'increase the position on bear market',
+    2:'cross_last_high_price,stopLosePrice!=0 on bull market',
+    3:'cross_last_high_price,stopLosePrice!=0 on bull market',
+    4:'cross_last_high_price,stopLosePrice=0 on bull market',
+    5:'kdj_j has been up on bull market',
     }
 
 LOSE_RATE_MONTH_BEAR = -0.1
 
 LOSE_RATE_MONTH_BULL = -0.2
+
+LOSE_RATE_WEEK_BULL = -0.1
+
+LOSE_RATE_WEEK_BEAR = -0.1
 
 GAIN_RATE_MONTH = 0.15
 
@@ -226,7 +247,6 @@ class ExchangeStrategy(object):
         self.profitRate = 0
         length = len(self.exchangeDf)
         indexLast = length-1
-        originalCapital = self.originalCapital
 
         if(length > 0):
             self.stockAmount = self.exchangeDf.at[indexLast,'stockAmount']
@@ -473,6 +493,16 @@ class ExchangeStrategy(object):
 
         return False
     
+    def isPositionLessThanHalf(self):
+        length = len(self.exchangeDf)
+        if length > 0:
+            if self.exchangeDf.at[length-1,'position'] < POSITION_HALF and self.exchangeDf.at[length-1,'position'] > 0:
+                return True
+            else:
+                return False
+
+        return False
+    
     def isPositionEmpty(self):
         length = len(self.exchangeDf)
         if length > 0:
@@ -533,7 +563,7 @@ class ExchangeStrategy(object):
         dfDayData = self.dpDayObj.getDfOriginalData()
         dfDayDataTemp = dfDayData
         dfMonthDataTemp = dfMonthData[dfMonthData[dp.DATA_DATE] == date]
-        if(len(dfMonthDataTemp) != 0):
+        if dfMonthDataTemp.empty != True:
             self.dfMonthRegenData = self.dfMonthGenData[self.dfMonthGenData[dp.DATA_DATE] <= date]
         else:
             dfMonthDataBefore = dfMonthData[dfMonthData[dp.DATA_DATE] < date]
@@ -573,19 +603,101 @@ class ExchangeStrategy(object):
             
             self.dfMonthRegenData = self.dpMonthObj.getDfData()
 
+    def stopLoseAndSetStopLosePrice(self,dfData,index,stopLosePrice,loserate,reason):
+        if self.isStatusOnHaveStock():
+            if dfData.at[index,dp.DATA_LOW] < stopLosePrice:
+                if self.stopLose(dfData, index,LOSE_RATE_MONTH_BULL, stopLosePrice,reason) == False:
+                    if dfData.at[index,dp.DATA_CLOSE] > stopLosePrice:
+                        stopLosePrice = dfData.at[index,dp.DATA_CLOSE]
+                else:
+                    stopLosePrice = 0
+                        
+        return  stopLosePrice    
+
 class CyclicalStockExchangeStrategy(ExchangeStrategy):
     def exchange(self):
         # after two year of max price in bull market
-        self.exchangeInLongTerm()
+        self.exchangeInMiddleTerm()
 
     def exchangeInMiddleTerm(self,initCapital=100000):
         self.capital = initCapital*self.position
         self.cash = self.capital
-        dfData = self.dfWeekFilterData
-        dfGenData = self.dfWeekGenData
-    
+        dfWeekFilterData = self.dfWeekFilterData
+        dfWeekGenData = self.dfWeekGenData
+        dfRegenMonthData = pd.DataFrame()
+        stopLosePrice = 0
+        for index in dfWeekFilterData.index:
+            dfRegenMonthData = self.regenerateMonthData(dfWeekFilterData.at[index,dp.DATA_DATE])
+            lastMonthDataIndex = len(self.dfMonthRegenData) - 1
+            if dfRegenMonthData.at[lastMonthDataIndex,dp.MACD_DIF] > dfRegenMonthData.at[lastMonthDataIndex,dp.MACD_DEA]:
+                # bull market, buy/keep
+                if (self.isMaUp(dfRegenMonthData,MA_5,lastMonthDataIndex) == TRUE 
+                     or self.isDifUp(dfRegenMonthData,lastMonthDataIndex) == TRUE 
+                     or self.maWillBeUp(dfRegenMonthData, lastMonthDataIndex, MA_5, 5) == TRUE):
+                    # make position = 1
+                    if self.isPositionFull() == False:
+                        if self.isKDJUp(dfWeekGenData, dp.KDJ_J, index) and dfWeekGenData.at[index,dp.KDJ_J] < 30:
+                            if self.doAction(BUY,dfWeekGenData.at[index,dp.DATA_CLOSE],POSITION_ALL,dfWeekGenData.at[index,dp.DATA_DATE],BUY_REASON_WEEK_DIC[0]):
+                                stopLosePrice = dfWeekGenData.at[index,dp.DATA_CLOSE]
+                            else:
+                                stopLosePrice = self.stopLoseAndSetStopLosePrice(dfWeekGenData,index,stopLosePrice,LOSE_RATE_WEEK_BULL,SELL_REASON_WEEK_DIC[0])
+                        else:
+                            stopLosePrice = self.stopLoseAndSetStopLosePrice(dfWeekGenData,index,stopLosePrice,LOSE_RATE_WEEK_BULL,SELL_REASON_WEEK_DIC[0])
+                    # else, wait for chance to buy
+                    else:
+                        stopLosePrice = self.stopLoseAndSetStopLosePrice(dfWeekGenData,index,stopLosePrice,LOSE_RATE_WEEK_BULL,SELL_REASON_WEEK_DIC[0])            
+                # bear market, sell
+                elif (self.isMaUp(dfRegenMonthData,MA_5,lastMonthDataIndex) == FALSE 
+                      or self.isDifUp(dfRegenMonthData,dp.MACD_DIF,lastMonthDataIndex) == FALSE 
+                      or self.maWillBeUp(dfRegenMonthData, index, MA_5, 5) == FALSE): 
+                    if(self.isMaUp(dfWeekGenData,MA_5,index) == FALSE
+                       or self.isDifUp(dfWeekGenData,dp.MACD_DIF,index) == FALSE
+                       or self.maWillBeUp(dfWeekGenData, index, MA_5, 5) == FALSE):
+                        if self.isStatusOnHaveStock() == True:
+                            self.doAction(SELL,dfWeekGenData.at[index,dp.DATA_CLOSE],POSITION_EMPTY,dfWeekGenData.at[index,dp.DATA_DATE],SELL_REASON_MONTH_DIC[1])
+                    elif(self.isMaUp(dfWeekGenData,MA_5,index) == TRUE
+                       or self.isDifUp(dfWeekGenData,dp.MACD_DIF,index) == TRUE
+                       or self.maWillBeUp(dfWeekGenData, index, MA_5, 5) == TRUE):
+                        if self.isPositionEmpty() == True:
+                            if self.isKDJUp(dfWeekGenData, dp.KDJ_J, index) and dfWeekGenData.at[index,dp.KDJ_J] < 30:
+                                currentPosition = 0
+                                if dfWeekGenData.at[index,dp.MACD_DIF] < 0:
+                                    currentPosition = POSITION_QUARTER
+                                else:
+                                    currentPosition = POSITION_HALF
+                                if self.isPositionLessThanHalf():
+                                    if self.doAction(BUY,dfWeekGenData.at[index,dp.DATA_CLOSE],currentPosition,dfWeekGenData.at[index,dp.DATA_DATE],BUY_REASON_WEEK_DIC[1]):
+                                        stopLosePrice = dfWeekGenData.at[index,dp.DATA_CLOSE]
+                        else:
+                            stopLosePrice = self.stopLoseAndSetStopLosePrice(dfWeekGenData,index,stopLosePrice,LOSE_RATE_WEEK_BEAR,SELL_REASON_WEEK_DIC[1]) 
+                    else:
+                        stopLosePrice = self.stopLoseAndSetStopLosePrice(dfWeekGenData,index,stopLosePrice,LOSE_RATE_WEEK_BEAR,SELL_REASON_WEEK_DIC[1])                        
+                # isMaup = undefined isDifUp=undefined maWillBeUp=undefined, shock market
+                else:
+                    if(self.isMaUp(dfWeekGenData,MA_5,index) == TRUE
+                       or self.isDifUp(dfWeekGenData,dp.MACD_DIF,index) == TRUE
+                       or self.maWillBeUp(dfWeekGenData, index, MA_5, 5) == TRUE):
+                        if self.isPositionLessThanHalf():
+                            if self.isKDJUp(dfWeekGenData, dp.KDJ_J, index) and dfWeekGenData.at[index,dp.KDJ_J] < 30:
+                                currentPosition = 0
+                                if dfWeekGenData.at[index,dp.MACD_DIF] < 0:
+                                    currentPosition = POSITION_QUARTER
+                                else:
+                                    currentPosition = POSITION_HALF
+                                
+                                if self.doAction(BUY,dfWeekGenData.at[index,dp.DATA_CLOSE],currentPosition,dfWeekGenData.at[index,dp.DATA_DATE],BUY_REASON_MONTH_DIC[3]):
+                                    stopLosePrice = dfWeekGenData.at[index,dp.DATA_CLOSE]
+                                else:
+                                    stopLosePrice = self.stopLoseAndSetStopLosePrice(dfWeekGenData,index,stopLosePrice,LOSE_RATE_WEEK_BEAR,SELL_REASON_WEEK_DIC[2]) 
+                        else:
+                            stopLosePrice = self.stopLoseAndSetStopLosePrice(dfWeekGenData,index,stopLosePrice,LOSE_RATE_WEEK_BEAR,SELL_REASON_WEEK_DIC[2])  
+                    else:
+                        if self.isStatusOnHaveStock() == True:
+                            self.doAction(SELL,dfWeekGenData.at[index,dp.DATA_CLOSE],POSITION_EMPTY,dfWeekGenData.at[index,dp.DATA_DATE],SELL_REASON_MONTH_DIC[2])           
+            #else:
+                #pass
+
     def exchangeInLongTerm(self,initCapital=100000):
-        self.originalCapital = initCapital
         self.capital = initCapital
         self.cash = self.capital
         self.position = 0
@@ -690,8 +802,8 @@ class CyclicalStockExchangeStrategy(ExchangeStrategy):
                     else:
                         stopLosePrice = dfData.at[index,dp.DATA_CLOSE]
                 else:
-                    if ((self.maWillBeUp(dfGenData, index, MA_5, 5) and dfData.at[index,dp.MACD_DIF] < 0) or
-                        (self.maWillBeUp(dfGenData, index, MA_5, 5) and dfData.at[index,dp.MACD_DIF] > dfData.at[index,dp.MACD_DEA])):  
+                    if ((self.maWillBeUp(dfGenData, index, MA_5, 5) == TRUE and dfData.at[index,dp.MACD_DIF] < 0) or
+                        (self.maWillBeUp(dfGenData, index, MA_5, 5) == TRUE and dfData.at[index,dp.MACD_DIF] > dfData.at[index,dp.MACD_DEA])):  
                             if self.doAction(BUY, dfData.at[index,dp.DATA_CLOSE],POSITION_ALL,dfData.at[index,dp.DATA_DATE],BUY_REASON_MONTH_DIC[0]):
                                 stopLosePrice = dfData.at[index,dp.DATA_CLOSE]
 
