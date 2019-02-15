@@ -453,6 +453,6 @@ class DataProcess(object):
         self.addMACD()
         self.addKDJ()
         self.addBULL()
-        self.addOtherIndicator()
+#         self.addOtherIndicator()
         
 
