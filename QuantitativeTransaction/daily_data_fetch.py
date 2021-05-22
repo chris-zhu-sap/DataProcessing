@@ -131,7 +131,7 @@ if __name__ == '__main__':
     stock_info_url = 'https://gupiao.baidu.com/stock/'
     hs300StockListFileUrl = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000300cons.xls'
     #     zz500StockListFileUrl  = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000905cons.xls'
-    #     m = re.match(r'.*(\d{6})(.*)', hs300StockListFileUrl)
+    #     m = re.match(r'.*(\d{6})(.*)', hs300_stock_list_file_url)
     indexCode, filename = get_name_and_code(hs300StockListFileUrl)
     fetcher = StockInfoFetch(indexCode)
     fetcher.get_china_stock_list(hs300StockListFileUrl, filename)
