@@ -1,5 +1,7 @@
 import sys
 import platform
+import time
+import os
 
 
 def get_ts_code(code):
@@ -27,3 +29,16 @@ def get_delimiter():
         return "\\"
     else:
         return '/'
+
+
+def get_dir_name_of_report():
+    time_format = time.strftime("_%Y_%m_%d", time.localtime())
+    dir_name = 'report' + time_format
+    return dir_name
+
+
+def create_report_dir():
+    path = get_dir_name_of_report()
+    isExists = os.path.exists(path)
+    if not isExists:
+        os.makedirs(path)

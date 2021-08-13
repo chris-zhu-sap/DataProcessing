@@ -15,12 +15,16 @@ DAY = 'D'
 WEEK = 'W'
 MONTH = 'M'
 HOUR = '60'
-MAX_KDJ = 80
-MIN_KDJ = 15
 
 SHORT = 12
 LONG = 26
 MID = 9
+
+KDJ_N = 9
+KDJ_M1 = 3
+
+BULL_N_DAYS = 20
+BULL_N_FACTOR = 2
 
 FLOAT_FORMAT2 = '%.2f'
 FLOAT_FORMAT4 = '%.4f'
@@ -99,7 +103,6 @@ def get_current_trade_report_for_all_period(stock_code=None, data_dir_by_date=No
             stock = sd.StockData(stock_code, date=data_dir_by_date)
             p_stock = DataProcess(stock_code, stock.getStockName(), data_dir_by_date, period)
             p_stock.readGenData()
-            #p_stock.addMACD()
             p_stock.generateDeviationByMACD(PERIOD_LIST_DEV, last_n_periods=1, update_report_for_current_trade_data=True)
             print(
                     f"[File:{sys._getframe().f_code.co_filename} line:{sys._getframe().f_lineno}] Message: update generated data for stock:{stock_code} of Period:{period} has been done!")
@@ -203,10 +206,61 @@ class DataProcess(object):
 
         self.dfData.fillna(0, inplace=True)
 
+    def addKDJ(self, n=KDJ_N, m1=KDJ_M1):
+        if len(self.dfData) > 0 and n > 0 and m1 > 0:
+            if len(self.dfData) >= n:
+                self.dfData['llv_low'] = self.dfData['low'].rolling(n).min()
+                self.dfData['hhv_high'] = self.dfData['high'].rolling(n).max()
+                self.dfData['rsv'] = (self.dfData['close'] - self.dfData['llv_low']) / (self.dfData['hhv_high'] - self.dfData['llv_low'])
+                self.dfData['k'] = self.dfData['rsv'].ewm(adjust=False, alpha=1/m1).mean()
+                self.dfData['d'] = self.dfData['k'].ewm(adjust=False, alpha=1/m1).mean()
+                self.dfData['j'] = 3 * self.dfData['k'] - 2 * self.dfData['d']
+                self.dfData['k'] = self.dfData['k'] * 100
+                self.dfData['d'] = self.dfData['d'] * 100
+                self.dfData['j'] = self.dfData['j']*100
+                self.dfData.fillna(0, inplace=True)
+                # only keep k d j, remove the middle data
+                self.dfData.drop('llv_low', axis=1, inplace=True)
+                self.dfData.drop('hhv_high', axis=1, inplace=True)
+                self.dfData.drop('rsv', axis=1, inplace=True)
+
+                print('Add KDJ for %s has been done!' % self.dataCsvFile)
+            else:
+                print('Not enough data to generate MACD for code:%s!' % self.code)
+        else:
+            print('[File:%s line:%d stock:%s!] Error: Parameter is invalid!' % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
+            sys.exit()
+
+    def addBullBand(self, n_days=BULL_N_DAYS, n_factor=BULL_N_FACTOR):
+        if len(self.dfData) > 0 and n_days > 0:
+            if len(self.dfData) >= BULL_N_DAYS:
+                self.dfData['bull_mid'] = self.dfData['close'].rolling(n_days).mean()
+                std = self.dfData['close'].rolling(n_days).std()
+                self.dfData['bull_top'] = self.dfData['bull_mid'] + n_factor * std
+                self.dfData['bull_bottom'] = self.dfData['bull_mid'] - n_factor * std
+                self.dfData.fillna(0, inplace=True)
+
+                self.addFlagForBullBand()
+
+                print('Add BULL band for %s has been done!' % self.dataCsvFile)
+            else:
+                print('Not enough data to generate MACD for code:%s!' % self.code)
+        else:
+            print('[File:%s line:%d stock:%s!] Error: Parameter is invalid!' % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
+            sys.exit()
+
+    def addFlagForBullBand(self):
+        if len(self.dfData) > 0:
+            self.dfData['flag_cross_top'] = self.dfData['high'] > self.dfData['bull_top']
+            self.dfData['flag_cross_bottom'] = self.dfData['low'] < self.dfData['bull_bottom']
+        else:
+            print('[File:%s line:%d stock:%s!] Error: Parameter is invalid!' % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
+            sys.exit()
+
     def addMACD(self, short=SHORT, long=LONG, mid=MID):
-        print("########################")
-        print(len(self.dfData))
-        print("########################")
         if len(self.dfData) > 0 and short > 0 and long > 0 and mid > 0:
             if len(self.dfData) >= long:
                 # calculate short EMA
@@ -399,13 +453,14 @@ class DataProcess(object):
     def makeGenData(self):
         self.readData()
         self.addMA(PERIOD_LIST_MA)
-        print("makeGenData")
         self.addMACD()
+        self.addKDJ()
+        self.addBullBand()
         self.generateDeviationByMACD(PERIOD_LIST_DEV)
 
 
 if __name__ == '__main__':
-    dataDate = '2021-05-22'
+    dataDate = '2021-08-13'
     #     wanke = DataProcess('000002',dataDate,'D')
     #     wanke.makeGenData()
     #     wanke.saveAsGeneratedData()
@@ -425,11 +480,11 @@ if __name__ == '__main__':
 
     code_list = ['000002']
     util.transfer_code_as_ts_code(code_list)
-    sd.download_stock_data_as_csv(code_list)
+    sd.download_stock_data_as_csv(code_list, dataDate)
     sd.update_stock_data_for_list(code_list, dataDate)
     generate_more_data_for_all_stocks(code_list, dataDate)
-    update_generated_data_for_all_stocks(code_list, dataDate)
-    get_current_trade_report(code_list, dataDate)
+    # update_generated_data_for_all_stocks(code_list, dataDate)
+    # get_current_trade_report(code_list, dataDate)
 #     code_list = ['000001','000002','000063']
 #     generate_more_data_for_all_stocks(code_list, dataDate)
 #     update_generated_data_for_all_stocks(code_list,dataDate)

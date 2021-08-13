@@ -120,14 +120,11 @@ def get_stock_name_by_code(stock_code, data_date=None):
     return df_basic.loc[stock_code]['name']
 
 
-def download_stock_data_as_csv(code_list_para=None):
+def download_stock_data_as_csv(code_list_para=None, start_date=None):
     df = get_df_from_basic_list()
 
     if code_list_para is None:
         code_list_para = df.index
-        print("[File: %s line:%d] All stock in China will be download!" % (sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
-    else:
-        print("[File: %s line:%d] Stock in the code list will be download!" % (sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
 
     for ts_code in code_list_para:
         try:
@@ -137,10 +134,14 @@ def download_stock_data_as_csv(code_list_para=None):
             date = str(date_temp)
             date_to_market = date[:4] + "-" + date[4:6] + "-" + date[6:]
 
-            my_stock = StockData(ts_code, name)
-            my_stock.getKDataAsCSV(k=DAY, start=date_to_market)
-            my_stock.getKDataAsCSV(k=WEEK, start=date_to_market)
-            my_stock.getKDataAsCSV(k=MONTH, start=date_to_market)
+            my_stock = StockData(ts_code, name, start_date)
+            if my_stock.checkDataFilesDownloaded() is False:
+                my_stock.getKDataAsCSV(k=DAY, start=date_to_market)
+                my_stock.getKDataAsCSV(k=WEEK, start=date_to_market)
+                my_stock.getKDataAsCSV(k=MONTH, start=date_to_market)
+            else:
+                print("[File: %s line:%d stock:%s] Data files has been downloaded, don't need download any more!" % (
+                    sys._getframe().f_code.co_filename, sys._getframe().f_lineno, ts_code))
         except Exception as e:
             print("[File: %s line:%d stock:%s Error:%s] Error happen when download the stock" % (
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, ts_code, e))
@@ -189,7 +190,7 @@ def update_stock_data_for_list(code_list_para=None, date=None, k=None, update_di
 
 
 def update_stock_data(code, date=None, k=None):
-    my_stock = StockData(code, date)
+    my_stock = StockData(stock_code=code, date=date)
     if k is None:
         my_stock.updateAllKData()
     else:
@@ -280,6 +281,11 @@ class StockData(object):
         self.weekKDataFilePath = self.dataPath + util.get_delimiter() + self.stockCode + "_k_week.csv"
         self.monthKDataFilePath = self.dataPath + util.get_delimiter() + self.stockCode + "_k_month.csv"
         self.hourKDataFilePath = self.dataPath + util.get_delimiter() + self.stockCode + "_k_hour.csv"
+
+    def checkDataFilesDownloaded(self):
+        if os.path.exists(self.dayKDataFilePath) and os.path.exists(self.weekKDataFilePath) and os.path.exists(self.monthKDataFilePath):
+            return True
+        return False
 
     def setDataPath(self, index_dir=None):
         #         dirNameByDate = time.strftime('%Y%m%d')
@@ -395,12 +401,48 @@ class StockData(object):
                         sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
                 self.lenUpdated = len(df_latest)
                 # delete last column 'code'
-                df_latest.drop('ts_code', axis=1, inplace=True)
+                if self.lenUpdated > 0:
+                    df_latest.drop('ts_code', axis=1, inplace=True)
+                else:
+                    last_date_str = str(df['trade_date'].values[-1])
+                    if k == DAY:
+                        df_latest = pro.daily(ts_code=self.stockCode, start_date=last_date_str)
+                    elif k == WEEK:
+                        df_latest = pro.weekly(ts_code=self.stockCode, start_date=last_date_str)
+                    elif k == MONTH:
+                        df_latest = pro.monthly(ts_code=self.stockCode, start_date=last_date_str)
+                    df_latest.drop('ts_code', axis=1, inplace=True)
                 if not df_latest.empty:
-                    new_df = pd.concat([df, df_latest.sort_values(by='trade_date', ascending=True)])
-                    new_df.to_csv(file_path, index=False, float_format=FLOAT_FORMAT)
-                    print("[File: %s line:%d]: Data of %s has been updated successfully " % (
-                        sys._getframe().f_code.co_filename, sys._getframe().f_lineno, str(self.stockCode)))
+                    new_df = df
+                    if self.lenUpdated > 0:
+                        new_df = pd.concat([df, df_latest.sort_values(by='trade_date', ascending=True)])
+                    if k == DAY:
+                        new_df.to_csv(file_path, index=False, float_format=FLOAT_FORMAT)
+                    if k == WEEK or k == MONTH:
+                        latest_date = df_latest.at[0, 'trade_date']
+                        df_daily_data = pro.daily(ts_code=self.stockCode, start_date=latest_date)
+                        if len(df_daily_data) > 1:
+                            df_daily_data = df_daily_data[:-1]
+                            index_last = len(df_daily_data) - 1
+                            open_price = df_daily_data.at[index_last, 'open']
+                            close_price = df_daily_data.at[0, 'close']
+                            high_price = pd.Series(df_daily_data['high']).max()
+                            low_price = pd.Series(df_daily_data['low']).min()
+                            trade_date = df_daily_data.at[0, 'trade_date']
+                            data = {'trade_date': [trade_date],
+                                    'open': [open_price],
+                                    'high': [high_price],
+                                    'low': [low_price],
+                                    'close': [close_price],
+                                    'pre_close': [0],
+                                    'change': [0],
+                                    'pct_chg': [0],
+                                    'vol': [0],
+                                    'amount': [0],
+                                    }
+                            df_data = pd.DataFrame(data)
+                            cur_df = pd.concat([new_df, df_data])
+                            cur_df.to_csv(file_path, index=False, float_format=FLOAT_FORMAT)
                 else:
                     print("[File: %s line:%d]: No record need to be updated for stock %s !" % (
                         sys._getframe().f_code.co_filename, sys._getframe().f_lineno,  str(self.stockCode)))
@@ -416,22 +458,22 @@ class StockData(object):
 
 
 if __name__ == '__main__':
-    zz500_stock_list_file_url = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000905cons.xls'
-    dataDate = '2021-05-22'
-    hs300_stock_list_file_url = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000300cons.xls'
-    file_name = get_name_and_code(hs300_stock_list_file_url)
-    hs300_code_list = get_china_stock_list(hs300_stock_list_file_url, file_name)
-    print('The length of hs300_code_list is: %d!' % (len(hs300_code_list)))
-    file_name = get_name_and_code(zz500_stock_list_file_url)
-    zz500_code_list = get_china_stock_list(zz500_stock_list_file_url, file_name)
-    print('The length of zz500_code_list is: %d!' % (len(zz500_code_list)))
-    my_code_list = ['600030']
+    dataDate = '2021-08-11'
+    # zz500_stock_list_file_url = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000905cons.xls'
+    # hs300_stock_list_file_url = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000300cons.xls'
+    # file_name = get_name_and_code(hs300_stock_list_file_url)
+    # hs300_code_list = get_china_stock_list(hs300_stock_list_file_url, file_name)
+    # print('The length of hs300_code_list is: %d!' % (len(hs300_code_list)))
+    # file_name = get_name_and_code(zz500_stock_list_file_url)
+    # zz500_code_list = get_china_stock_list(zz500_stock_list_file_url, file_name)
+    # print('The length of zz500_code_list is: %d!' % (len(zz500_code_list)))
+    my_code_list = ['000002']
     print('The length of my_code_list is: %d' % len(my_code_list))
     # code_list = hs300_code_list + zz500_code_list + my_code_list
     code_list = list(set(my_code_list))
     print('The length of code_list is: %d' % len(code_list))
     util.transfer_code_as_ts_code(code_list)
-    # download_stock_data_as_csv(code_list)
+    # download_stock_data_as_csv(code_list, dataDate)
 #     hs300_code_list = get_china_stock_list(hs300_stock_list_file_url, file_name,dataDate)
 #     update_stock_data_for_list(hs300_code_list,dataDate,updateDir=True)
       ################################################################################
