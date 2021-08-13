@@ -2,6 +2,15 @@ import sys
 import platform
 import time
 import os
+import data_process as dp
+
+SIGNAL_FILES_DIR = 'trade-signal-file'
+
+dic_period = {
+    'M': 'month',
+    'D': 'day',
+    'W': 'week'
+}
 
 
 def get_ts_code(code):
@@ -31,14 +40,19 @@ def get_delimiter():
         return '/'
 
 
-def get_dir_name_of_report():
+def get_signal_file_path(period, sig_name):
     time_format = time.strftime("_%Y_%m_%d", time.localtime())
-    dir_name = 'report' + time_format
-    return dir_name
+    file_path = SIGNAL_FILES_DIR + get_delimiter() + sig_name + '_' + dic_period[period] + time_format + '.csv'
+    return file_path
+
+
+def write_signal_into_csv(df, file_path):
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    df.to_csv(file_path, index=False, float_format=dp.FLOAT_FORMAT2, encoding="utf-8")
 
 
 def create_report_dir():
-    path = get_dir_name_of_report()
-    isExists = os.path.exists(path)
+    isExists = os.path.exists(SIGNAL_FILES_DIR)
     if not isExists:
-        os.makedirs(path)
+        os.makedirs(SIGNAL_FILES_DIR)

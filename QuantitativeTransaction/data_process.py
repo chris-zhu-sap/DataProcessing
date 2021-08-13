@@ -7,7 +7,7 @@ import os
 import pandas as pd
 import sys
 import tushare as ts
-import time
+import numpy as np
 import stock_data as sd
 import util
 
@@ -15,6 +15,9 @@ DAY = 'D'
 WEEK = 'W'
 MONTH = 'M'
 HOUR = '60'
+
+SIGNAL_CROSS_BULL = 'cross_bull_band'
+SIGNAL_MACD_DEVIATION = 'macd_deviation'
 
 SHORT = 12
 LONG = 26
@@ -103,9 +106,10 @@ def get_current_trade_report_for_all_period(stock_code=None, data_dir_by_date=No
             stock = sd.StockData(stock_code, date=data_dir_by_date)
             p_stock = DataProcess(stock_code, stock.getStockName(), data_dir_by_date, period)
             p_stock.readGenData()
-            p_stock.generateDeviationByMACD(PERIOD_LIST_DEV, last_n_periods=1, update_report_for_current_trade_data=True)
+            p_stock.generateDeviationByMACD(PERIOD_LIST_DEV, last_n_periods=1,
+                                            update_report_for_current_trade_data=True)
             print(
-                    f"[File:{sys._getframe().f_code.co_filename} line:{sys._getframe().f_lineno}] Message: update generated data for stock:{stock_code} of Period:{period} has been done!")
+                f"[File:{sys._getframe().f_code.co_filename} line:{sys._getframe().f_lineno}] Message: update generated data for stock:{stock_code} of Period:{period} has been done!")
     else:
         print(
             f"[File:{sys._getframe().f_code.co_filename} line:{sys._getframe().f_lineno}] Error: Parameters should not be empty!")
@@ -122,6 +126,95 @@ def get_current_trade_report(stock_list=None, data_dir_by_date=None):
             get_current_trade_report_for_all_period(code, data_dir_by_date)
 
 
+def get_trade_signal(stock_list=None, data_dir_by_date=None):
+    if stock_list is None or not len(stock_list) or data_dir_by_date is None:
+        print(
+            f"[File:{sys._getframe().f_code.co_filename} line:{sys._getframe().f_lineno}] Error: Parameters should not be empty!")
+        sys.exit()
+    else:
+        util.create_report_dir()
+        df_day_bull_cross = pd.DataFrame()
+        df_week_bull_cross = pd.DataFrame()
+        df_month_bull_cross = pd.DataFrame()
+        df_day_deviation = pd.DataFrame()
+        df_week_deviation = pd.DataFrame()
+        df_month_deviation = pd.DataFrame()
+        for code in stock_list:
+            for period in PERIOD_LIST_ALL:
+                stock = sd.StockData(code, date=data_dir_by_date)
+                stock_processed_data = DataProcess(code, stock.getStockName(), data_dir_by_date, period)
+                stock_processed_data.readGenData()
+                have_deviation_data = stock_processed_data.readDeviationData()
+                latest_date_str = stock_processed_data.getLatestDateStr()
+                if stock_processed_data.isCrossBullBandCurrently() is True:
+                    df_cross = stock_processed_data.getLatestGenData()
+                    df_cross = df_cross.loc[:, ['trade_date', 'flag_cross_top', 'flag_cross_bottom']]
+                    df_cross['aCode'] = stock_processed_data.code
+                    df_cross['aName'] = stock_processed_data.name
+                    if period == DAY:
+                        if len(df_day_bull_cross) > 0:
+                            df_day_bull_cross = pd.concat(df_day_bull_cross, df_cross)
+                        else:
+                            df_day_bull_cross = df_cross
+                    elif period == WEEK:
+                        if len(df_week_bull_cross) > 0:
+                            df_week_bull_cross = pd.concat(df_week_bull_cross, df_cross)
+                        else:
+                            df_week_bull_cross = df_cross
+                    elif period == MONTH:
+                        if len(df_month_bull_cross) > 0:
+                            df_month_bull_cross = pd.concat(df_month_bull_cross, df_cross)
+                        else:
+                            df_month_bull_cross = df_cross
+                    else:
+                        print("[File:%s line:%d stock:%s] Error: invalid value for period!" % (
+                            sys._getframe().f_code.co_filename, sys._getframe().f_lineno, stock_processed_data.code))
+                        sys.exit()
+                if have_deviation_data is True:
+                    latest_deviation_date_str = stock_processed_data.getLatestDeviationDateStr()
+                    if latest_deviation_date_str == latest_date_str:
+                        latest_date = stock_processed_data.getLatestDate()
+                        df_deviation = stock_processed_data.getDeviationDateData(latest_date)
+                        if period == DAY:
+                            if len(df_day_deviation) > 0:
+                                df_day_deviation = pd.concat(df_day_deviation, df_deviation)
+                            else:
+                                df_day_deviation = df_deviation
+                        elif period == WEEK:
+                            if len(df_week_deviation) > 0:
+                                df_week_deviation = pd.concat(df_week_deviation, df_deviation)
+                            else:
+                                df_week_deviation = df_deviation
+                        elif period == MONTH:
+                            if len(df_month_deviation) > 0:
+                                df_month_deviation = pd.concat(df_month_deviation, df_deviation)
+                            else:
+                                df_month_deviation = df_deviation
+                        else:
+                            print("[File:%s line:%d stock:%s] Error: invalid value for period!" % (
+                                sys._getframe().f_code.co_filename, sys._getframe().f_lineno,
+                                stock_processed_data.code))
+                            sys.exit()
+        if len(df_day_bull_cross) > 0:
+            file_path = util.get_signal_file_path(DAY, SIGNAL_CROSS_BULL)
+            util.write_signal_into_csv(df_day_bull_cross, file_path)
+        if len(df_week_bull_cross) > 0:
+            file_path = util.get_signal_file_path(WEEK, SIGNAL_CROSS_BULL)
+            util.write_signal_into_csv(df_week_bull_cross, file_path)
+        if len(df_month_bull_cross) > 0:
+            file_path = util.get_signal_file_path(MONTH, SIGNAL_CROSS_BULL)
+            util.write_signal_into_csv(df_month_bull_cross, file_path)
+        if len(df_day_deviation) > 0:
+            file_path = util.get_signal_file_path(DAY, SIGNAL_MACD_DEVIATION)
+            util.write_signal_into_csv(df_day_deviation, file_path)
+        if len(df_week_deviation) > 0:
+            file_path = util.get_signal_file_path(WEEK, SIGNAL_MACD_DEVIATION)
+            util.write_signal_into_csv(df_week_deviation, file_path)
+        if len(df_month_deviation) > 0:
+            file_path = util.get_signal_file_path(MONTH, SIGNAL_MACD_DEVIATION)
+            util.write_signal_into_csv(df_month_deviation, file_path)
+
+
 class DataProcess(object):
     def __init__(self, stock_code, stock_name, data_dir_by_date, period=DAY):
         self.dataPath = data_dir_by_date + util.get_delimiter() + stock_code + util.get_delimiter()
@@ -129,6 +222,8 @@ class DataProcess(object):
         self.name = stock_name
         self.period = period
         self.dfData = pd.DataFrame()
+        self.dfGenData = pd.DataFrame()
+        self.dfDeviationData = pd.DataFrame()
 
         if period == DAY:
             self.dataCsvFile = self.dataPath + stock_code + "_k_day.csv"
@@ -175,18 +270,86 @@ class DataProcess(object):
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code, self.dataCsvFile))
             sys.exit()
 
+    def deleteGenFile(self):
         if os.path.exists(self.dataGenCsvFile):
             os.remove(self.dataGenCsvFile)
 
     def readGenData(self):
         if os.path.exists(self.dataGenCsvFile):
-            self.dfData = pd.read_csv(self.dataGenCsvFile)
+            self.dfGenData = pd.read_csv(self.dataGenCsvFile)
         else:
             print('[File:%s line:%d stock:%s] Error: File %s is not exist' % (
-                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code, self.dataCsvFile))
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code, self.dataGenCsvFile))
+            sys.exit()
+
+    def readDeviationData(self):
+        if os.path.exists(self.deviationReportFile):
+            self.dfDeviationData = pd.read_csv(self.deviationReportFile)
+            return True
+        else:
+            return False
+
+    def getLatestDeviationDateStr(self):
+        index_latest = len(self.dfDeviationData) - 1
+        if index_latest >= 0:
+            return str(self.dfDeviationData.at[index_latest, 'dateCurrent'])
+        else:
+            print('[File:%s line:%d stock:%s] Error: deviation data is empty!' % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
+            sys.exit()
+
+    def getDeviationDateData(self, date):
+        index_latest = len(self.dfDeviationData) - 1
+        if index_latest >= 0:
+            return self.dfDeviationData[self.dfDeviationData['dateCurrent'] == date]
+        else:
+            print('[File:%s line:%d stock:%s] Error: deviation data is empty!' % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
+            sys.exit()
+
+    def isCrossBullBandCurrently(self):
+        index_latest = len(self.dfGenData) - 1
+        if index_latest >= 0:
+            bool_cross_top = self.dfGenData.at[index_latest, 'flag_cross_top']
+            bool_cross_bottom = self.dfGenData.at[index_latest, 'flag_cross_bottom']
+            # sys.exit()
+            if bool_cross_top == True or bool_cross_bottom == True:
+                return True
+            return False
+        else:
+            print('[File:%s line:%d stock:%s] Error: generated data is empty!' % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
+            sys.exit()
+
+    def getLatestGenData(self):
+        index_latest = len(self.dfGenData) - 1
+        if index_latest >= 0:
+            return self.dfGenData[index_latest:]
+        else:
+            print('[File:%s line:%d stock:%s] Error: generated data is empty!' % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
+            sys.exit()
+
+    def getLatestDateStr(self):
+        index_latest = len(self.dfGenData) - 1
+        if index_latest >= 0:
+            return str(self.dfGenData.at[index_latest, 'trade_date'])
+        else:
+            print('[File:%s line:%d stock:%s] Error: generated data is empty!' % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
+            sys.exit()
+
+    def getLatestDate(self):
+        index_latest = len(self.dfGenData) - 1
+        if index_latest >= 0:
+            return self.dfGenData.at[index_latest, 'trade_date']
+        else:
+            print('[File:%s line:%d stock:%s] Error: generated data is empty!' % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
             sys.exit()
 
     def saveAsGeneratedData(self):
+        self.deleteGenFile()
         self.dfData.to_csv(self.dataGenCsvFile, index=False, float_format=FLOAT_FORMAT2, encoding="utf-8")
 
     def addMA(self, period_list):
@@ -211,13 +374,14 @@ class DataProcess(object):
             if len(self.dfData) >= n:
                 self.dfData['llv_low'] = self.dfData['low'].rolling(n).min()
                 self.dfData['hhv_high'] = self.dfData['high'].rolling(n).max()
-                self.dfData['rsv'] = (self.dfData['close'] - self.dfData['llv_low']) / (self.dfData['hhv_high'] - self.dfData['llv_low'])
-                self.dfData['k'] = self.dfData['rsv'].ewm(adjust=False, alpha=1/m1).mean()
-                self.dfData['d'] = self.dfData['k'].ewm(adjust=False, alpha=1/m1).mean()
+                self.dfData['rsv'] = (self.dfData['close'] - self.dfData['llv_low']) / (
+                        self.dfData['hhv_high'] - self.dfData['llv_low'])
+                self.dfData['k'] = self.dfData['rsv'].ewm(adjust=False, alpha=1 / m1).mean()
+                self.dfData['d'] = self.dfData['k'].ewm(adjust=False, alpha=1 / m1).mean()
                 self.dfData['j'] = 3 * self.dfData['k'] - 2 * self.dfData['d']
                 self.dfData['k'] = self.dfData['k'] * 100
                 self.dfData['d'] = self.dfData['d'] * 100
-                self.dfData['j'] = self.dfData['j']*100
+                self.dfData['j'] = self.dfData['j'] * 100
                 self.dfData.fillna(0, inplace=True)
                 # only keep k d j, remove the middle data
                 self.dfData.drop('llv_low', axis=1, inplace=True)
@@ -380,7 +544,8 @@ class DataProcess(object):
 
                                 if update_report_for_current_trade_data and last_period == 0:
                                     df_current = pd.concat([df_current, df_per])
-                                    df_current.to_csv(self.reportOfCurrentTrade, index=False, float_format=FLOAT_FORMAT2,
+                                    df_current.to_csv(self.reportOfCurrentTrade, index=False,
+                                                      float_format=FLOAT_FORMAT2,
                                                       encoding="utf-8")
                                     print(
                                         'Add the bottom deviation of current trade data for the stock:%s has been done!' % (
@@ -431,7 +596,8 @@ class DataProcess(object):
 
                                 if update_report_for_current_trade_data and last_period == 0:
                                     df_current = pd.concat([df_current, df_per])
-                                    df_current.to_csv(self.reportOfCurrentTrade, index=False, float_format=FLOAT_FORMAT2,
+                                    df_current.to_csv(self.reportOfCurrentTrade, index=False,
+                                                      float_format=FLOAT_FORMAT2,
                                                       encoding="utf-8")
                                     print(
                                         'Add the top deviation of current trade data for the stock:%s has been done!' % (
@@ -480,9 +646,10 @@ if __name__ == '__main__':
 
     code_list = ['000002']
     util.transfer_code_as_ts_code(code_list)
-    sd.download_stock_data_as_csv(code_list, dataDate)
-    sd.update_stock_data_for_list(code_list, dataDate)
-    generate_more_data_for_all_stocks(code_list, dataDate)
+    # sd.download_stock_data_as_csv(code_list, dataDate)
+    # sd.update_stock_data_for_list(code_list, dataDate)
+    # generate_more_data_for_all_stocks(code_list, dataDate)
+    get_trade_signal(code_list, dataDate)
     # update_generated_data_for_all_stocks(code_list, dataDate)
     # get_current_trade_report(code_list, dataDate)
 #     code_list = ['000001','000002','000063']
