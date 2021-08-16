@@ -121,7 +121,7 @@ def get_stock_name_by_code(stock_code, data_date=None):
 
 
 def download_stock_data_as_csv(code_list_para=None, start_date=None):
-    df = get_df_from_basic_list()
+    df = get_df_from_basic_list(start_date)
 
     if code_list_para is None:
         code_list_para = df.index
@@ -416,7 +416,6 @@ class StockData(object):
                     new_df = df
                     if self.lenUpdated > 0:
                         new_df = pd.concat([df, df_latest.sort_values(by='trade_date', ascending=True)])
-                    if k == DAY:
                         new_df.to_csv(file_path, index=False, float_format=FLOAT_FORMAT)
                     if k == WEEK or k == MONTH:
                         latest_date = df_latest.at[0, 'trade_date']

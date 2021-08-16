@@ -48,8 +48,9 @@ def get_signal_file_path(period, sig_name):
 
 def write_signal_into_csv(df, file_path):
     if os.path.exists(file_path):
-        os.remove(file_path)
-    df.to_csv(file_path, index=False, float_format=dp.FLOAT_FORMAT2, encoding="utf-8")
+        df.to_csv(file_path, mode='a', index=False, float_format=dp.FLOAT_FORMAT2, encoding="utf-8")
+    else:
+        df.to_csv(file_path, index=False, float_format=dp.FLOAT_FORMAT2, encoding="utf-8")
 
 
 def create_report_dir():

@@ -153,17 +153,17 @@ def get_trade_signal(stock_list=None, data_dir_by_date=None):
                     df_cross['aName'] = stock_processed_data.name
                     if period == DAY:
                         if len(df_day_bull_cross) > 0:
-                            df_day_bull_cross = pd.concat(df_day_bull_cross, df_cross)
+                            df_day_bull_cross = df_day_bull_cross.append(df_cross)
                         else:
                             df_day_bull_cross = df_cross
                     elif period == WEEK:
                         if len(df_week_bull_cross) > 0:
-                            df_week_bull_cross = pd.concat(df_week_bull_cross, df_cross)
+                            df_week_bull_cross = df_week_bull_cross.append(df_cross)
                         else:
                             df_week_bull_cross = df_cross
                     elif period == MONTH:
                         if len(df_month_bull_cross) > 0:
-                            df_month_bull_cross = pd.concat(df_month_bull_cross, df_cross)
+                            df_month_bull_cross = df_month_bull_cross.append(df_cross)
                         else:
                             df_month_bull_cross = df_cross
                     else:
@@ -177,17 +177,17 @@ def get_trade_signal(stock_list=None, data_dir_by_date=None):
                         df_deviation = stock_processed_data.getDeviationDateData(latest_date)
                         if period == DAY:
                             if len(df_day_deviation) > 0:
-                                df_day_deviation = pd.concat(df_day_deviation, df_deviation)
+                                df_day_deviation = df_day_deviation.append(df_deviation)
                             else:
                                 df_day_deviation = df_deviation
                         elif period == WEEK:
                             if len(df_week_deviation) > 0:
-                                df_week_deviation = pd.concat(df_week_deviation, df_deviation)
+                                df_week_deviation = df_week_deviation.append(df_deviation)
                             else:
                                 df_week_deviation = df_deviation
                         elif period == MONTH:
                             if len(df_month_deviation) > 0:
-                                df_month_deviation = pd.concat(df_month_deviation, df_deviation)
+                                df_month_deviation = df_month_deviation.append(df_deviation)
                             else:
                                 df_month_deviation = df_deviation
                         else:
@@ -308,11 +308,12 @@ class DataProcess(object):
             sys.exit()
 
     def isCrossBullBandCurrently(self):
+        if 'flag_cross_top' not in self.dfGenData.columns:
+            return False
         index_latest = len(self.dfGenData) - 1
         if index_latest >= 0:
             bool_cross_top = self.dfGenData.at[index_latest, 'flag_cross_top']
             bool_cross_bottom = self.dfGenData.at[index_latest, 'flag_cross_bottom']
-            # sys.exit()
             if bool_cross_top == True or bool_cross_bottom == True:
                 return True
             return False
@@ -362,10 +363,6 @@ class DataProcess(object):
             if period <= len(self.dfData):
                 maName = 'MA' + str(period)
                 self.dfData[maName] = pd.Series(self.dfData['close']).rolling(period).mean()
-                # pd.rolling_mean(self.dfData['close'], period)
-                print('Add MA%d for %s has been done!' % (period, self.dataCsvFile))
-            else:
-                print('Length of data is smaller than period:%d, can not generate such MA for this period!' % period)
 
         self.dfData.fillna(0, inplace=True)
 
@@ -387,10 +384,6 @@ class DataProcess(object):
                 self.dfData.drop('llv_low', axis=1, inplace=True)
                 self.dfData.drop('hhv_high', axis=1, inplace=True)
                 self.dfData.drop('rsv', axis=1, inplace=True)
-
-                print('Add KDJ for %s has been done!' % self.dataCsvFile)
-            else:
-                print('Not enough data to generate MACD for code:%s!' % self.code)
         else:
             print('[File:%s line:%d stock:%s!] Error: Parameter is invalid!' % (
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
@@ -404,12 +397,8 @@ class DataProcess(object):
                 self.dfData['bull_top'] = self.dfData['bull_mid'] + n_factor * std
                 self.dfData['bull_bottom'] = self.dfData['bull_mid'] - n_factor * std
                 self.dfData.fillna(0, inplace=True)
-
-                self.addFlagForBullBand()
-
-                print('Add BULL band for %s has been done!' % self.dataCsvFile)
-            else:
-                print('Not enough data to generate MACD for code:%s!' % self.code)
+                if 'bull_top' in self.dfData.columns:
+                    self.addFlagForBullBand()
         else:
             print('[File:%s line:%d stock:%s!] Error: Parameter is invalid!' % (
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
@@ -442,10 +431,6 @@ class DataProcess(object):
 
                 self.dfData.drop('sema', axis=1, inplace=True)
                 self.dfData.drop('lema', axis=1, inplace=True)
-
-                print('Add MACD for %s has been done!' % self.dataCsvFile)
-            else:
-                print('Not enough data to generate MACD for code:%s!' % self.code)
         else:
             print('[File:%s line:%d stock:%s!] Error: Parameter is invalid!' % (
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
@@ -487,7 +472,7 @@ class DataProcess(object):
         if last_n_periods is None:
             last_n_periods = len(data_df)
 
-        if last_n_periods == 0:
+        if last_n_periods <= 0:
             last_n_periods = 1
 
         if df_length < LONG:
@@ -555,7 +540,6 @@ class DataProcess(object):
                                     duplicated_flag = True
 
                         # 顶背离
-                        price_highest = 0
                         if last_period > 0:
                             price_highest = pd.Series(data_df['high'][-(period + last_period):-last_period]).max()
                         else:
@@ -622,7 +606,8 @@ class DataProcess(object):
         self.addMACD()
         self.addKDJ()
         self.addBullBand()
-        self.generateDeviationByMACD(PERIOD_LIST_DEV)
+        self.generateDeviationByMACD(period_list=PERIOD_LIST_DEV, last_n_periods=1)
+        # self.generateDeviationByMACD(PERIOD_LIST_DEV)
 
 
 if __name__ == '__main__':
@@ -644,11 +629,20 @@ if __name__ == '__main__':
     #     code_list = hs300_code_list + zz500_code_list + my_code_list
     #     code_list = list(set(code_list))
 
-    code_list = ['000002']
+    # concerned stocks
+    # code_list = ['002773', '600877', '601318', '300146', '600547', '300498']
+    # cyclical stocks
+    # code_list = ['000002', '600585', '601628', '300059', '601318', '600030', '601288', '600547', '601988', '601696', '600036']
+    # foreign capital
+    # code_list = ['002353', '000338', '000333', '300285', '000651', '601901', '002008', '600887', '600872', '002439', '300244', '603882', '300012', '300347', '603489', '002508', '600406', '300450', '600885', '002812']
+    # tech stocks
+    # code_list = ['300346', '688012', '605111', '000158', '688561', '300339', '002371', '300373']
+    # pharmaceutical stocks
+    code_list = ['002382', '002223', '688690', '300358', '688399', '002422', '300725', '688180', '688505', '688266', '300142', '002773', '300003', '300009', '300558', '300146', '600276']
     util.transfer_code_as_ts_code(code_list)
-    # sd.download_stock_data_as_csv(code_list, dataDate)
-    # sd.update_stock_data_for_list(code_list, dataDate)
-    # generate_more_data_for_all_stocks(code_list, dataDate)
+    sd.download_stock_data_as_csv(code_list, dataDate)
+    sd.update_stock_data_for_list(code_list, dataDate)
+    generate_more_data_for_all_stocks(code_list, dataDate)
     get_trade_signal(code_list, dataDate)
     # update_generated_data_for_all_stocks(code_list, dataDate)
     # get_current_trade_report(code_list, dataDate)
