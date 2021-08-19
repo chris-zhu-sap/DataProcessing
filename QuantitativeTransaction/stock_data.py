@@ -304,7 +304,8 @@ class StockData(object):
         pro = get_ts_pro()
         if k == DAY:
             if os.path.exists(self.dayKDataFilePath) is False:
-                df = pro.daily(ts_code=self.stockCode, start_date=start)
+                df = ts.pro_bar(ts_code=self.stockCode, adj='qfq', start_date=start)
+                # df = pro.daily(ts_code=self.stockCode, start_date=start)
                 # delete last column 'code'
                 df.drop('ts_code', axis=1, inplace=True)
                 df.sort_values(by='trade_date', ascending=True).to_csv(self.dayKDataFilePath, index=False, float_format=FLOAT_FORMAT)
@@ -315,7 +316,8 @@ class StockData(object):
                     sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.dayKDataFilePath))
         elif k == WEEK:
             if os.path.exists(self.weekKDataFilePath) is False:
-                df = pro.weekly(ts_code=self.stockCode, start_date=start)
+                # df = pro.weekly(ts_code=self.stockCode, start_date=start)
+                df = ts.pro_bar(ts_code=self.stockCode, freq='W', adj='qfq', start_date=start)
                 # delete last column 'code'
                 df.drop('ts_code', axis=1, inplace=True)
                 df.sort_values(by='trade_date', ascending=True).to_csv(self.weekKDataFilePath, index=False, float_format=FLOAT_FORMAT)
@@ -326,7 +328,8 @@ class StockData(object):
                     sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.weekKDataFilePath))
         elif k == MONTH:
             if os.path.exists(self.monthKDataFilePath) is False:
-                df = pro.monthly(ts_code=self.stockCode, start_date=start)
+                # df = pro.monthly(ts_code=self.stockCode, start_date=start)
+                df = ts.pro_bar(ts_code=self.stockCode, freq='M', adj='qfq', start_date=start)
                 # delete last column 'code'
                 df.drop('ts_code', axis=1, inplace=True)
                 df.sort_values(by='trade_date', ascending=True).to_csv(self.monthKDataFilePath, index=False, float_format=FLOAT_FORMAT)
@@ -362,10 +365,16 @@ class StockData(object):
         if k is not None:
             if k == DAY:
                 self.doUpdate(self.dayKDataFilePath, k)
+                print("[File: %s line:%d freq:%s] update data for %s complete!" % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, k, self.stockCode))
             elif k == WEEK:
                 self.doUpdate(self.weekKDataFilePath, k)
+                print("[File: %s line:%d freq:%s] update data for %s complete!" % (
+                    sys._getframe().f_code.co_filename, sys._getframe().f_lineno, k, self.stockCode))
             elif k == MONTH:
                 self.doUpdate(self.monthKDataFilePath, k)
+                print("[File: %s line:%d freq:%s] update data for %s complete!" % (
+                    sys._getframe().f_code.co_filename, sys._getframe().f_lineno, k, self.stockCode))
             # elif k == HOUR:
             #     self.doUpdate(self.hourKDataFilePath, k)
             else:
@@ -383,65 +392,62 @@ class StockData(object):
 
         if os.path.exists(file_path) is True:
             df = pd.read_csv(file_path)
-            last_date_str = ''
             if not df.empty:
-                pro = get_ts_pro()
                 last_date_str = str(df['trade_date'].values[-1])
                 df.drop(df.index[[-1]], inplace=True)
 
                 df_latest = pd.DataFrame()
                 if k == DAY:
-                    df_latest = pro.daily(ts_code=self.stockCode, start_date=last_date_str)
+                    df_latest = ts.pro_bar(ts_code=self.stockCode, adj='qfq', start_date=last_date_str)
                 elif k == WEEK:
-                    df_latest = pro.weekly(ts_code=self.stockCode, start_date=last_date_str)
+                    df_latest = ts.pro_bar(ts_code=self.stockCode, freq='W', adj='qfq', start_date=last_date_str)
                 elif k == MONTH:
-                    df_latest = pro.monthly(ts_code=self.stockCode, start_date=last_date_str)
+                    df_latest = ts.pro_bar(ts_code=self.stockCode, freq='M', adj='qfq', start_date=last_date_str)
                 else:
                     print("[File: %s line:%d]: Invalid time level when request data!" % (
                         sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
+
                 self.lenUpdated = len(df_latest)
-                # delete last column 'code'
                 if self.lenUpdated > 0:
                     df_latest.drop('ts_code', axis=1, inplace=True)
-                else:
-                    last_date_str = str(df['trade_date'].values[-1])
-                    if k == DAY:
-                        df_latest = pro.daily(ts_code=self.stockCode, start_date=last_date_str)
-                    elif k == WEEK:
-                        df_latest = pro.weekly(ts_code=self.stockCode, start_date=last_date_str)
-                    elif k == MONTH:
-                        df_latest = pro.monthly(ts_code=self.stockCode, start_date=last_date_str)
-                    df_latest.drop('ts_code', axis=1, inplace=True)
-                if not df_latest.empty:
-                    new_df = df
-                    if self.lenUpdated > 0:
-                        new_df = pd.concat([df, df_latest.sort_values(by='trade_date', ascending=True)])
-                        new_df.to_csv(file_path, index=False, float_format=FLOAT_FORMAT)
-                    if k == WEEK or k == MONTH:
-                        latest_date = df_latest.at[0, 'trade_date']
-                        df_daily_data = pro.daily(ts_code=self.stockCode, start_date=latest_date)
-                        if len(df_daily_data) > 1:
-                            df_daily_data = df_daily_data[:-1]
-                            index_last = len(df_daily_data) - 1
-                            open_price = df_daily_data.at[index_last, 'open']
-                            close_price = df_daily_data.at[0, 'close']
-                            high_price = pd.Series(df_daily_data['high']).max()
-                            low_price = pd.Series(df_daily_data['low']).min()
-                            trade_date = df_daily_data.at[0, 'trade_date']
-                            data = {'trade_date': [trade_date],
-                                    'open': [open_price],
-                                    'high': [high_price],
-                                    'low': [low_price],
-                                    'close': [close_price],
-                                    'pre_close': [0],
-                                    'change': [0],
-                                    'pct_chg': [0],
-                                    'vol': [0],
-                                    'amount': [0],
-                                    }
-                            df_data = pd.DataFrame(data)
-                            cur_df = pd.concat([new_df, df_data])
-                            cur_df.to_csv(file_path, index=False, float_format=FLOAT_FORMAT)
+                    df = pd.concat([df, df_latest.sort_values(by='trade_date', ascending=True)])
+                    df.to_csv(file_path, index=False, float_format=FLOAT_FORMAT)
+                    df = df.reset_index(drop=True)
+
+                if k == WEEK or k == MONTH:
+                    index_last = len(df) - 1
+                    latest_date_int = int(df.at[index_last, 'trade_date'])
+                    df_day_data = pd.DataFrame()
+                    if os.path.exists(self.dayKDataFilePath):
+                        df_day_data = pd.read_csv(self.dayKDataFilePath)
+                    else:
+                        print("[File: %s line:%d]: can't find the data file for stock:%s freq:%s!" % (
+                            sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.stockCode, DAY))
+                        sys.exit()
+                    df_daily_data = df_day_data[df_day_data['trade_date'] > latest_date_int]
+                    print(df_daily_data)
+                    if len(df_daily_data) > 0:
+                        df_daily_data = df_daily_data.reset_index(drop=True)
+                        index_last = len(df_daily_data) - 1
+                        open_price = df_daily_data.at[0, 'open']
+                        close_price = df_daily_data.at[index_last, 'close']
+                        high_price = pd.Series(df_daily_data['high']).max()
+                        low_price = pd.Series(df_daily_data['low']).min()
+                        trade_date = df_daily_data.at[index_last, 'trade_date']
+                        data = {'trade_date': [trade_date],
+                                'open': [open_price],
+                                'high': [high_price],
+                                'low': [low_price],
+                                'close': [close_price],
+                                'pre_close': [0],
+                                'change': [0],
+                                'pct_chg': [0],
+                                'vol': [0],
+                                'amount': [0],
+                                }
+                        df_data = pd.DataFrame(data)
+                        df = pd.concat([df, df_data.sort_values(by='trade_date', ascending=True)])
+                        df.to_csv(file_path, index=False, float_format=FLOAT_FORMAT)
                 else:
                     print("[File: %s line:%d]: No record need to be updated for stock %s !" % (
                         sys._getframe().f_code.co_filename, sys._getframe().f_lineno,  str(self.stockCode)))

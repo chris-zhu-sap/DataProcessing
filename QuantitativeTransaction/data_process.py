@@ -413,18 +413,40 @@ class DataProcess(object):
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
             sys.exit()
 
+    def calculateEMA(self, N, ma_name):
+        if len(self.dfData) > 0 and N > 0:
+            # self.dfData[ma_name] = 0
+            for i in range(len(self.dfData)):
+                if i == 0:
+                    self.dfData.at[i, ma_name] = self.dfData.at[i, 'close']
+                if i > 0:
+                    self.dfData.at[i, ma_name] = (2*self.dfData.at[i, 'close']+(N-1)*self.dfData.at[i-1, ma_name])/(N+1)
+        else:
+            print('[File:%s line:%d] Error: Parameter is invalid!' % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
+            sys.exit()
+
     def addMACD(self, short=SHORT, long=LONG, mid=MID):
         if len(self.dfData) > 0 and short > 0 and long > 0 and mid > 0:
             if len(self.dfData) >= long:
-                # calculate short EMA
-                self.dfData['sema'] = pd.Series(self.dfData['close']).ewm(span=short).mean()
-                # calculate long EMA
-                self.dfData['lema'] = pd.Series(self.dfData['close']).ewm(span=long).mean()
+                # calculate EMA
+                # self.calculateEMA(short, 'sema')
+                # self.calculateEMA(long, 'lema')
+                # self.dfData['sema'] = pd.Series(self.dfData['close']).ewm(span=short).mean()
+                # self.dfData['lema'] = pd.Series(self.dfData['close']).ewm(span=long).mean()
+                self.dfData['sema'] = self.dfData['close'].ewm(adjust=False, alpha=2/(short+1), ignore_na=True).mean()
+                self.dfData['lema'] = self.dfData['close'].ewm(adjust=False, alpha=2/(long+1), ignore_na=True).mean()
                 # fill 0 if data=NA in dfData['sema'] and dfData['lema']
                 self.dfData.fillna(0, inplace=True)
                 # calculate diff, dea and macd
                 self.dfData['dif'] = self.dfData['sema'] - self.dfData['lema']
-                self.dfData['dea'] = pd.Series(self.dfData['dif']).ewm(span=mid).mean()
+                # self.dfData['dea'] = pd.Series(self.dfData['dif']).ewm(span=mid).mean()
+                self.dfData['dea'] = self.dfData['dif'].ewm(adjust=False, alpha=2/(mid+1), ignore_na=True).mean()
+                # for i in range(len(self.dfData)):
+                #     if i == 0:
+                #         self.dfData.at[i, 'dea'] = self.dfData.at[i, 'dif']
+                #     if i > 0:
+                #         self.dfData.at[i, 'dea'] = ((mid-1)*self.dfData.at[i-1, 'dea']+2*self.dfData.at[i-1, 'dif'])/(mid+1)
                 self.dfData['macd'] = 2 * (self.dfData['dif'] - self.dfData['dea'])
                 # fill 0 if data=NA in dfData['data_dif'],dfData['data_dea'],dfData['data_macd']
                 self.dfData.fillna(0, inplace=True)
@@ -630,15 +652,24 @@ if __name__ == '__main__':
     #     code_list = list(set(code_list))
 
     # concerned stocks
-    # code_list = ['002773', '600877', '601318', '300146', '600547', '300498']
+    code_list1 = ['002773', '600877', '601628', '300146', '600547', '300498']
     # cyclical stocks
-    # code_list = ['000002', '600585', '601628', '300059', '601318', '600030', '601288', '600547', '601988', '601696', '600036']
+    code_list2 = ['000002', '600585', '601628', '300059', '601318', '600030', '601288', '600547', '601988', '601696', '600036']
     # foreign capital
-    # code_list = ['002353', '000338', '000333', '300285', '000651', '601901', '002008', '600887', '600872', '002439', '300244', '603882', '300012', '300347', '603489', '002508', '600406', '300450', '600885', '002812']
+    code_list3 = ['002353', '000338', '000333', '300285', '000651', '601901', '002008', '600887', '600872', '002439', '300244', '603882', '300012', '300347', '603489', '002508', '600406', '300450', '600885', '002812']
     # tech stocks
-    # code_list = ['300346', '688012', '605111', '000158', '688561', '300339', '002371', '300373']
+    code_list4 = ['300346', '688012', '605111', '000158', '688561', '300339', '002371', '300373']
     # pharmaceutical stocks
-    code_list = ['002382', '002223', '688690', '300358', '688399', '002422', '300725', '688180', '688505', '688266', '300142', '002773', '300003', '300009', '300558', '300146', '600276']
+    code_list5 = ['002382', '002223', '688690', '300358', '688399', '002422', '300725', '688180', '688505', '688266', '300142', '002773', '300003', '300009', '300558', '300146', '600276']
+    # new energy
+    code_list6 = ['002249', '601865', '300376', '002709', '002158', '002594', '601615', '002733', '002639', '688339', '600478', '002129', '603806']
+    # yi mei
+    code_list7 = ['000963', '300896', '688363']
+    # wine
+    code_list8 = ['600779', '002304', '000799', '600809', '000858', '600519']
+    code_list = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8
+    code_list = list(set(code_list))
+    code_list = ['000002']
     util.transfer_code_as_ts_code(code_list)
     sd.download_stock_data_as_csv(code_list, dataDate)
     sd.update_stock_data_for_list(code_list, dataDate)
