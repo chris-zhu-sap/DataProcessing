@@ -669,7 +669,7 @@ if __name__ == '__main__':
     code_list8 = ['600779', '002304', '000799', '600809', '000858', '600519']
     code_list = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8
     code_list = list(set(code_list))
-    code_list = ['000002']
+    # code_list = ['000002']
     util.transfer_code_as_ts_code(code_list)
     sd.download_stock_data_as_csv(code_list, dataDate)
     sd.update_stock_data_for_list(code_list, dataDate)

@@ -305,7 +305,6 @@ class StockData(object):
         if k == DAY:
             if os.path.exists(self.dayKDataFilePath) is False:
                 df = ts.pro_bar(ts_code=self.stockCode, adj='qfq', start_date=start)
-                # df = pro.daily(ts_code=self.stockCode, start_date=start)
                 # delete last column 'code'
                 df.drop('ts_code', axis=1, inplace=True)
                 df.sort_values(by='trade_date', ascending=True).to_csv(self.dayKDataFilePath, index=False, float_format=FLOAT_FORMAT)
@@ -316,7 +315,6 @@ class StockData(object):
                     sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.dayKDataFilePath))
         elif k == WEEK:
             if os.path.exists(self.weekKDataFilePath) is False:
-                # df = pro.weekly(ts_code=self.stockCode, start_date=start)
                 df = ts.pro_bar(ts_code=self.stockCode, freq='W', adj='qfq', start_date=start)
                 # delete last column 'code'
                 df.drop('ts_code', axis=1, inplace=True)
@@ -328,7 +326,6 @@ class StockData(object):
                     sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.weekKDataFilePath))
         elif k == MONTH:
             if os.path.exists(self.monthKDataFilePath) is False:
-                # df = pro.monthly(ts_code=self.stockCode, start_date=start)
                 df = ts.pro_bar(ts_code=self.stockCode, freq='M', adj='qfq', start_date=start)
                 # delete last column 'code'
                 df.drop('ts_code', axis=1, inplace=True)
@@ -425,7 +422,6 @@ class StockData(object):
                             sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.stockCode, DAY))
                         sys.exit()
                     df_daily_data = df_day_data[df_day_data['trade_date'] > latest_date_int]
-                    print(df_daily_data)
                     if len(df_daily_data) > 0:
                         df_daily_data = df_daily_data.reset_index(drop=True)
                         index_last = len(df_daily_data) - 1
