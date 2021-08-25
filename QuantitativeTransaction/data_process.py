@@ -6,8 +6,8 @@ Created on Sep 18, 2017
 import os
 import pandas as pd
 import sys
-import tushare as ts
-import numpy as np
+from apscheduler.schedulers.blocking import BlockingScheduler
+from datetime import datetime
 import stock_data as sd
 import util
 
@@ -37,6 +37,10 @@ PERIOD_LIST_ALL = [DAY, WEEK, MONTH]
 PERIOD_LIST_MA = [5, 10, 20, 30, 60, 120, 250]
 
 PERIOD_LIST_DEV = [5, 10, 20, 30, 60, 120, 250]
+
+
+def job():
+    print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 
 def generate_more_data_for_all_period(stock_code=None, data_dir_by_date=None):
@@ -148,7 +152,7 @@ def get_trade_signal(stock_list=None, data_dir_by_date=None):
                 latest_date_str = stock_processed_data.getLatestDateStr()
                 if stock_processed_data.isCrossBullBandCurrently() is True:
                     df_cross = stock_processed_data.getLatestGenData()
-                    df_cross = df_cross.loc[:, ['trade_date', 'flag_cross_top', 'flag_cross_bottom']]
+                    df_cross = df_cross.loc[:, ['trade_date', 'flag_cross_top', 'flag_cross_bottom', 'flag_mid_up']]
                     df_cross['aCode'] = stock_processed_data.code
                     df_cross['aName'] = stock_processed_data.name
                     if period == DAY:
@@ -405,33 +409,23 @@ class DataProcess(object):
             sys.exit()
 
     def addFlagForBullBand(self):
-        if len(self.dfData) > 0:
+        length = len(self.dfData)
+        if length > 0:
             self.dfData['flag_cross_top'] = self.dfData['high'] > self.dfData['bull_top']
             self.dfData['flag_cross_bottom'] = self.dfData['low'] < self.dfData['bull_bottom']
+            self.dfData['flag_mid_up'] = False
+            for i in range(length):
+                if i > 0 and self.dfData.at[i, 'bull_mid'] > self.dfData.at[i-1, 'bull_mid']:
+                    self.dfData.at[i, 'flag_mid_up'] = True
         else:
             print('[File:%s line:%d stock:%s!] Error: Parameter is invalid!' % (
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
-            sys.exit()
-
-    def calculateEMA(self, N, ma_name):
-        if len(self.dfData) > 0 and N > 0:
-            # self.dfData[ma_name] = 0
-            for i in range(len(self.dfData)):
-                if i == 0:
-                    self.dfData.at[i, ma_name] = self.dfData.at[i, 'close']
-                if i > 0:
-                    self.dfData.at[i, ma_name] = (2*self.dfData.at[i, 'close']+(N-1)*self.dfData.at[i-1, ma_name])/(N+1)
-        else:
-            print('[File:%s line:%d] Error: Parameter is invalid!' % (
-                sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
             sys.exit()
 
     def addMACD(self, short=SHORT, long=LONG, mid=MID):
         if len(self.dfData) > 0 and short > 0 and long > 0 and mid > 0:
             if len(self.dfData) >= long:
                 # calculate EMA
-                # self.calculateEMA(short, 'sema')
-                # self.calculateEMA(long, 'lema')
                 # self.dfData['sema'] = pd.Series(self.dfData['close']).ewm(span=short).mean()
                 # self.dfData['lema'] = pd.Series(self.dfData['close']).ewm(span=long).mean()
                 self.dfData['sema'] = self.dfData['close'].ewm(adjust=False, alpha=2/(short+1), ignore_na=True).mean()
@@ -442,11 +436,6 @@ class DataProcess(object):
                 self.dfData['dif'] = self.dfData['sema'] - self.dfData['lema']
                 # self.dfData['dea'] = pd.Series(self.dfData['dif']).ewm(span=mid).mean()
                 self.dfData['dea'] = self.dfData['dif'].ewm(adjust=False, alpha=2/(mid+1), ignore_na=True).mean()
-                # for i in range(len(self.dfData)):
-                #     if i == 0:
-                #         self.dfData.at[i, 'dea'] = self.dfData.at[i, 'dif']
-                #     if i > 0:
-                #         self.dfData.at[i, 'dea'] = ((mid-1)*self.dfData.at[i-1, 'dea']+2*self.dfData.at[i-1, 'dif'])/(mid+1)
                 self.dfData['macd'] = 2 * (self.dfData['dif'] - self.dfData['dea'])
                 # fill 0 if data=NA in dfData['data_dif'],dfData['data_dea'],dfData['data_macd']
                 self.dfData.fillna(0, inplace=True)
@@ -504,7 +493,7 @@ class DataProcess(object):
             array_last_n_periods = range(last_n_periods)
             for last_period in reversed(array_last_n_periods):
                 duplicated_flag = False
-                for period in reversed(period_list):
+                for period in period_list:
                     if duplicated_flag:
                         break
                     if df_length >= (period + last_period):
@@ -632,12 +621,8 @@ class DataProcess(object):
         # self.generateDeviationByMACD(PERIOD_LIST_DEV)
 
 
-if __name__ == '__main__':
+def job_update_and_generate_data_daily():
     dataDate = '2021-08-13'
-    #     wanke = DataProcess('000002',dataDate,'D')
-    #     wanke.makeGenData()
-    #     wanke.saveAsGeneratedData()
-    #     generateIncicatorForAllPeriod('000002',dataDate)
 
     #     hs300_stock_list_file_url  = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000300cons.xls'
     #     index_code, file_name= sd.get_name_and_code(hs300_stock_list_file_url)
@@ -645,10 +630,9 @@ if __name__ == '__main__':
     #
     #     zz500StockListFileUrl  = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000905cons.xls'
     #     index_code, file_name= sd.get_name_and_code(zz500StockListFileUrl)
-    #     zz500_code_list = sd.get_china_stock_list(zz500StockListFileUrl, file_name)
-    #
-    #     my_code_list = ['600030','600036','600061','600893','600498','300033','600547','300383','002716','600109','002353','300059']
-    #     code_list = hs300_code_list + zz500_code_list + my_code_list
+    #     zz500_code_list = sd.get_china_stock_list(zz500StockListFileUrl, file_name
+
+    #     code_list = hs300_code_list + zz500_code_list + code_list
     #     code_list = list(set(code_list))
 
     # concerned stocks
@@ -675,9 +659,20 @@ if __name__ == '__main__':
     sd.update_stock_data_for_list(code_list, dataDate)
     generate_more_data_for_all_stocks(code_list, dataDate)
     get_trade_signal(code_list, dataDate)
+
+
+if __name__ == '__main__':
+    scheduler = BlockingScheduler()
+    scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='1-5', hour=1, minute=0)
+    scheduler.start()
+
+    # don't use time Scheduler
+    # job_update_and_generate_data_daily()
+
+
     # update_generated_data_for_all_stocks(code_list, dataDate)
     # get_current_trade_report(code_list, dataDate)
-#     code_list = ['000001','000002','000063']
-#     generate_more_data_for_all_stocks(code_list, dataDate)
-#     update_generated_data_for_all_stocks(code_list,dataDate)
-#     get_current_trade_report(code_list,dataDate)
+    # code_list = ['000001','000002','000063']
+    # generate_more_data_for_all_stocks(code_list, dataDate)
+    # update_generated_data_for_all_stocks(code_list,dataDate)
+    # get_current_trade_report(code_list,dataDate)

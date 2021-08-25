@@ -444,9 +444,6 @@ class StockData(object):
                         df_data = pd.DataFrame(data)
                         df = pd.concat([df, df_data.sort_values(by='trade_date', ascending=True)])
                         df.to_csv(file_path, index=False, float_format=FLOAT_FORMAT)
-                else:
-                    print("[File: %s line:%d]: No record need to be updated for stock %s !" % (
-                        sys._getframe().f_code.co_filename, sys._getframe().f_lineno,  str(self.stockCode)))
             else:
                 print("[File:%s line:%d]: No record can be found in the data file!" % (
                     sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
