@@ -40,9 +40,15 @@ def get_delimiter():
         return '/'
 
 
-def get_signal_file_path(period, sig_name):
+def get_cross_bull_signal_file_path(period, sig_name):
     time_format = time.strftime("%Y_%m_%d_", time.localtime())
     file_path = SIGNAL_FILES_DIR + get_delimiter() + time_format + sig_name + '_' + dic_period[period] + '.csv'
+    return file_path
+
+
+def get_ma_up_down_signal_file_path(period, sig_name):
+    time_format = time.strftime("%Y_%m_%d_", time.localtime())
+    file_path = SIGNAL_FILES_DIR + get_delimiter() + time_format + sig_name + '_' + period + '.csv'
     return file_path
 
 

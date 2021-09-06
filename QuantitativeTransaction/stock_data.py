@@ -61,7 +61,7 @@ def get_china_stock_list(url, file_name, date=None):
     file_with_path = file_path + file_name
 
     if os.path.exists(file_with_path) is False:
-        urllib.request.urlretrieve(url, file_name)
+        urllib.request.urlretrieve(url, file_with_path)
         if os.path.exists(file_path) is False:
             os.makedirs(file_path)
 
@@ -456,26 +456,26 @@ class StockData(object):
 
 
 if __name__ == '__main__':
-    dataDate = '2021-08-11'
-    # zz500_stock_list_file_url = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000905cons.xls'
-    # hs300_stock_list_file_url = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000300cons.xls'
-    # file_name = get_name_and_code(hs300_stock_list_file_url)
-    # hs300_code_list = get_china_stock_list(hs300_stock_list_file_url, file_name)
-    # print('The length of hs300_code_list is: %d!' % (len(hs300_code_list)))
-    # file_name = get_name_and_code(zz500_stock_list_file_url)
-    # zz500_code_list = get_china_stock_list(zz500_stock_list_file_url, file_name)
-    # print('The length of zz500_code_list is: %d!' % (len(zz500_code_list)))
-    my_code_list = ['000002']
-    print('The length of my_code_list is: %d' % len(my_code_list))
+    dataDate = '2021-08-13'
+    zz500_stock_list_file_url = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000905cons.xls'
+    hs300_stock_list_file_url = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000300cons.xls'
+    file_name = get_name_and_code(hs300_stock_list_file_url)
+    hs300_code_list = get_china_stock_list(hs300_stock_list_file_url, file_name, dataDate)
+    print('The length of hs300_code_list is: %d!' % (len(hs300_code_list)))
+    file_name = get_name_and_code(zz500_stock_list_file_url)
+    zz500_code_list = get_china_stock_list(zz500_stock_list_file_url, file_name, dataDate)
+    print('The length of zz500_code_list is: %d!' % (len(zz500_code_list)))
+    # my_code_list = ['000002']
+    # print('The length of my_code_list is: %d' % len(my_code_list))
     # code_list = hs300_code_list + zz500_code_list + my_code_list
-    code_list = list(set(my_code_list))
-    print('The length of code_list is: %d' % len(code_list))
-    util.transfer_code_as_ts_code(code_list)
+    # code_list = list(set(my_code_list))
+    # print('The length of code_list is: %d' % len(code_list))
+    # util.transfer_code_as_ts_code(code_list)
     # download_stock_data_as_csv(code_list, dataDate)
 #     hs300_code_list = get_china_stock_list(hs300_stock_list_file_url, file_name,dataDate)
 #     update_stock_data_for_list(hs300_code_list,dataDate,updateDir=True)
       ################################################################################
       ## here dataDate is the directory(named by date) which save the old data     ###
       ################################################################################
-    update_stock_data_for_list(code_list, dataDate)
+    # update_stock_data_for_list(code_list, dataDate)
 

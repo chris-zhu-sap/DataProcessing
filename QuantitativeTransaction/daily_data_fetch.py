@@ -136,4 +136,4 @@ if __name__ == '__main__':
     fetcher = StockInfoFetch(indexCode)
     fetcher.get_china_stock_list(hs300StockListFileUrl, filename)
     #     fetcher.getStockList(stock_list_url)
-    fetcher.getStockInfo(stock_info_url)
+    # fetcher.getStockInfo(stock_info_url)

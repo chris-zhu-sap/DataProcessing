@@ -19,6 +19,9 @@ HOUR = '60'
 SIGNAL_CROSS_BULL = 'cross_bull_band'
 SIGNAL_MACD_DEVIATION = 'macd_deviation'
 
+SIGNAL_MA_UP = 'ma_up'
+SIGNAL_MA_DOWN = 'ma_down'
+
 SHORT = 12
 LONG = 26
 MID = 9
@@ -32,15 +35,17 @@ BULL_N_FACTOR = 2
 FLOAT_FORMAT2 = '%.2f'
 FLOAT_FORMAT4 = '%.4f'
 
+MA_SHORT = 20
+MA_MID = 60
+MA_LONG = 60
+
 PERIOD_LIST_ALL = [DAY, WEEK, MONTH]
 
 PERIOD_LIST_MA = [5, 10, 20, 30, 60, 120, 250]
 
 PERIOD_LIST_DEV = [5, 10, 20, 30, 60, 120, 250]
 
-
-def job():
-    print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+PERIOD_LIST_MA_START_TO_UP = [MA_SHORT, MA_MID, MA_LONG]
 
 
 def generate_more_data_for_all_period(stock_code=None, data_dir_by_date=None):
@@ -143,6 +148,12 @@ def get_trade_signal(stock_list=None, data_dir_by_date=None):
         df_day_deviation = pd.DataFrame()
         df_week_deviation = pd.DataFrame()
         df_month_deviation = pd.DataFrame()
+        df_ma_day_short_up = pd.DataFrame()
+        df_ma_day_mid_up = pd.DataFrame()
+        df_ma_day_long_up = pd.DataFrame()
+        df_ma_day_short_down = pd.DataFrame()
+        df_ma_day_mid_down = pd.DataFrame()
+        df_ma_day_long_down = pd.DataFrame()
         for code in stock_list:
             for period in PERIOD_LIST_ALL:
                 stock = sd.StockData(code, date=data_dir_by_date)
@@ -150,6 +161,57 @@ def get_trade_signal(stock_list=None, data_dir_by_date=None):
                 stock_processed_data.readGenData()
                 have_deviation_data = stock_processed_data.readDeviationData()
                 latest_date_str = stock_processed_data.getLatestDateStr()
+                if period == DAY:
+                    for period_day in PERIOD_LIST_MA_START_TO_UP:
+                        ma_name = 'MA' + str(period_day)
+                        start_up = stock_processed_data.isMaStartUp(ma_name)
+                        start_down = stock_processed_data.isMaStartDown(ma_name)
+                        if start_up is True:
+                            key = 'is_ma_' + str(period_day) + '_up'
+                            data = {'aCode': [stock_processed_data.code],
+                                    'aName': [stock_processed_data.name],
+                                    key: [start_up]
+                                    }
+                            df_up = pd.DataFrame(data)
+                            if period_day == MA_SHORT:
+                                if len(df_ma_day_short_up) > 0:
+                                    df_ma_day_short_up = df_ma_day_short_up.append(df_up)
+                                else:
+                                    df_ma_day_short_up = df_up
+                            if period_day == MA_MID:
+                                if len(df_ma_day_mid_up) > 0:
+                                    df_ma_day_mid_up = df_ma_day_mid_up.append(df_up)
+                                else:
+                                    df_ma_day_mid_up = df_up
+                            if period_day == MA_LONG:
+                                if len(df_ma_day_long_up) > 0:
+                                    df_ma_day_long_up = df_ma_day_long_up.append(df_up)
+                                else:
+                                    df_ma_day_long_up = df_up
+
+                        if start_down is True:
+                            key = 'is_ma_' + str(period_day) + '_down'
+                            data = {'aCode': [stock_processed_data.code],
+                                    'aName': [stock_processed_data.name],
+                                    key: [start_down]
+                                    }
+                            df_down = pd.DataFrame(data)
+                            if period_day == MA_SHORT:
+                                if len(df_ma_day_short_down) > 0:
+                                    df_ma_day_short_down = df_ma_day_short_down.append(df_down)
+                                else:
+                                    df_ma_day_short_down = df_down
+                            if period_day == MA_MID:
+                                if len(df_ma_day_mid_down) > 0:
+                                    df_ma_day_mid_down = df_ma_day_mid_down.append(df_down)
+                                else:
+                                    df_ma_day_mid_down = df_down
+                            if period_day == MA_LONG:
+                                if len(df_ma_day_long_down) > 0:
+                                    df_ma_day_long_down = df_ma_day_long_down.append(df_down)
+                                else:
+                                    df_ma_day_long_down = df_down
+
                 if stock_processed_data.isCrossBullBandCurrently() is True:
                     df_cross = stock_processed_data.getLatestGenData()
                     df_cross = df_cross.loc[:, ['trade_date', 'flag_cross_top', 'flag_cross_bottom', 'flag_mid_up']]
@@ -200,23 +262,42 @@ def get_trade_signal(stock_list=None, data_dir_by_date=None):
                                 stock_processed_data.code))
                             sys.exit()
         if len(df_day_bull_cross) > 0:
-            file_path = util.get_signal_file_path(DAY, SIGNAL_CROSS_BULL)
+            file_path = util.get_cross_bull_signal_file_path(DAY, SIGNAL_CROSS_BULL)
             util.write_signal_into_csv(df_day_bull_cross, file_path)
         if len(df_week_bull_cross) > 0:
-            file_path = util.get_signal_file_path(WEEK, SIGNAL_CROSS_BULL)
+            file_path = util.get_cross_bull_signal_file_path(WEEK, SIGNAL_CROSS_BULL)
             util.write_signal_into_csv(df_week_bull_cross, file_path)
         if len(df_month_bull_cross) > 0:
-            file_path = util.get_signal_file_path(MONTH, SIGNAL_CROSS_BULL)
+            file_path = util.get_cross_bull_signal_file_path(MONTH, SIGNAL_CROSS_BULL)
             util.write_signal_into_csv(df_month_bull_cross, file_path)
         if len(df_day_deviation) > 0:
-            file_path = util.get_signal_file_path(DAY, SIGNAL_MACD_DEVIATION)
+            file_path = util.get_cross_bull_signal_file_path(DAY, SIGNAL_MACD_DEVIATION)
             util.write_signal_into_csv(df_day_deviation, file_path)
         if len(df_week_deviation) > 0:
-            file_path = util.get_signal_file_path(WEEK, SIGNAL_MACD_DEVIATION)
+            file_path = util.get_cross_bull_signal_file_path(WEEK, SIGNAL_MACD_DEVIATION)
             util.write_signal_into_csv(df_week_deviation, file_path)
         if len(df_month_deviation) > 0:
-            file_path = util.get_signal_file_path(MONTH, SIGNAL_MACD_DEVIATION)
+            file_path = util.get_cross_bull_signal_file_path(MONTH, SIGNAL_MACD_DEVIATION)
             util.write_signal_into_csv(df_month_deviation, file_path)
+
+        if len(df_ma_day_short_up) > 0:
+            file_path = util.get_ma_up_down_signal_file_path(MA_SHORT, SIGNAL_MA_UP)
+            util.write_signal_into_csv(df_ma_day_short_up, file_path)
+        if len(df_ma_day_mid_up) > 0:
+            file_path = util.get_ma_up_down_signal_file_path(MA_MID, SIGNAL_MA_UP)
+            util.write_signal_into_csv(df_ma_day_mid_up, file_path)
+        if len(df_ma_day_long_up) > 0:
+            file_path = util.get_ma_up_down_signal_file_path(MA_LONG, SIGNAL_MA_UP)
+            util.write_signal_into_csv(df_ma_day_long_up, file_path)
+        if len(df_ma_day_short_down) > 0:
+            file_path = util.get_ma_up_down_signal_file_path(MA_SHORT, SIGNAL_MA_DOWN)
+            util.write_signal_into_csv(df_ma_day_short_down, file_path)
+        if len(df_ma_day_mid_down) > 0:
+            file_path = util.get_ma_up_down_signal_file_path(MA_MID, SIGNAL_MA_DOWN)
+            util.write_signal_into_csv(df_ma_day_mid_down, file_path)
+        if len(df_ma_day_long_down) > 0:
+            file_path = util.get_ma_up_down_signal_file_path(MA_LONG, SIGNAL_MA_DOWN)
+            util.write_signal_into_csv(df_ma_day_long_down, file_path)
 
 
 class DataProcess(object):
@@ -285,6 +366,32 @@ class DataProcess(object):
             print('[File:%s line:%d stock:%s] Error: File %s is not exist' % (
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code, self.dataGenCsvFile))
             sys.exit()
+
+    def isMaStartUp(self, ma_name):
+        length = len(self.dfDeviationData)
+        if length > 0:
+            if ma_name in self.dfDeviationData.columns:
+                index_last_1 = length - 1
+                index_last_2 = length - 2
+                index_last_3 = length - 3
+                if index_last_1 > 0 and index_last_2 > 0 and index_last_3 > 0:
+                    if self.dfDeviationData.at[index_last_1, ma_name] > self.dfDeviationData.at[index_last_2, ma_name] and self.dfDeviationData.at[index_last_2, ma_name] <= self.dfDeviationData.at[index_last_3, ma_name]:
+                        return True
+
+        return False
+
+    def isMaStartDown(self, ma_name):
+        length = len(self.dfDeviationData)
+        if length > 0:
+            if ma_name in self.dfDeviationData.columns:
+                index_last_1 = length - 1
+                index_last_2 = length - 2
+                index_last_3 = length - 3
+                if index_last_1 > 0 and index_last_2 > 0 and index_last_3 > 0:
+                    if self.dfDeviationData.at[index_last_1, ma_name] < self.dfDeviationData.at[index_last_2, ma_name] and self.dfDeviationData.at[index_last_2, ma_name] >= self.dfDeviationData.at[index_last_3, ma_name]:
+                        return True
+
+        return False
 
     def readDeviationData(self):
         if os.path.exists(self.deviationReportFile):
@@ -624,21 +731,21 @@ class DataProcess(object):
 def job_update_and_generate_data_daily():
     dataDate = '2021-08-13'
 
-    #     hs300_stock_list_file_url  = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000300cons.xls'
-    #     index_code, file_name= sd.get_name_and_code(hs300_stock_list_file_url)
-    #     hs300_code_list = sd.get_china_stock_list(hs300_stock_list_file_url, file_name)
-    #
-    #     zz500StockListFileUrl  = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000905cons.xls'
-    #     index_code, file_name= sd.get_name_and_code(zz500StockListFileUrl)
-    #     zz500_code_list = sd.get_china_stock_list(zz500StockListFileUrl, file_name
+    hs300_stock_list_file_url = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000300cons.xls'
+    file_name = sd.get_name_and_code(hs300_stock_list_file_url)
+    hs300_code_list = sd.get_china_stock_list(hs300_stock_list_file_url, file_name, dataDate)
+
+    zz500StockListFileUrl = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000905cons.xls'
+    file_name = sd.get_name_and_code(zz500StockListFileUrl)
+    zz500_code_list = sd.get_china_stock_list(zz500StockListFileUrl, file_name, dataDate)
 
     #     code_list = hs300_code_list + zz500_code_list + code_list
     #     code_list = list(set(code_list))
 
     # concerned stocks
-    code_list1 = ['002773', '600877', '601628', '300146', '600547', '300498']
+    code_list1 = ['002773', '600877', '601628', '300146', '600547', '601800', '002714', '688266', '601318', '300003']
     # cyclical stocks
-    code_list2 = ['000002', '600585', '601628', '300059', '601318', '600030', '601288', '600547', '601988', '601696', '600036']
+    code_list2 = ['000002', '600585', '601628', '300059', '601318', '600030', '601288', '600547', '601988', '601696', '600036', '300498', '601669']
     # foreign capital
     code_list3 = ['002353', '000338', '000333', '300285', '000651', '601901', '002008', '600887', '600872', '002439', '300244', '603882', '300012', '300347', '603489', '002508', '600406', '300450', '600885', '002812']
     # tech stocks
@@ -651,7 +758,11 @@ def job_update_and_generate_data_daily():
     code_list7 = ['000963', '300896', '688363']
     # wine
     code_list8 = ['600779', '002304', '000799', '600809', '000858', '600519']
-    code_list = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8
+    # other
+    code_list9 = ['601888', '300296', '300251', '300348', '688201', '002959', '603587']
+    # gas
+    code_list10 = ['600777', '600256', '603393']
+    code_list = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8 + code_list9 + code_list10 + hs300_code_list + zz500_code_list
     code_list = list(set(code_list))
     # code_list = ['000002']
     util.transfer_code_as_ts_code(code_list)
@@ -662,12 +773,12 @@ def job_update_and_generate_data_daily():
 
 
 if __name__ == '__main__':
-    scheduler = BlockingScheduler()
-    scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='1-5', hour=1, minute=0)
-    scheduler.start()
+    # scheduler = BlockingScheduler()
+    # scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='mon-fri', hour=14, minute=0, misfire_grace_time=3600)
+    # scheduler.start()
 
     # don't use time Scheduler
-    # job_update_and_generate_data_daily()
+    job_update_and_generate_data_daily()
 
 
     # update_generated_data_for_all_stocks(code_list, dataDate)
