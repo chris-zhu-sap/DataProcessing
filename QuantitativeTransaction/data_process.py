@@ -19,8 +19,11 @@ HOUR = '60'
 SIGNAL_CROSS_BULL = 'cross_bull_band'
 SIGNAL_MACD_DEVIATION = 'macd_deviation'
 
-SIGNAL_MA_UP = 'ma_up'
-SIGNAL_MA_DOWN = 'ma_down'
+SIGNAL_MA_UP = 'ma_start_up'
+SIGNAL_MA_DOWN = 'ma_start_down'
+
+SIGNAL_UP_CROSS_MA = 'up_cross_ma'
+SIGNAL_DOWN_CROSS_MA = 'down_cross_ma'
 
 SHORT = 12
 LONG = 26
@@ -37,7 +40,7 @@ FLOAT_FORMAT4 = '%.4f'
 
 MA_SHORT = 20
 MA_MID = 60
-MA_LONG = 60
+MA_LONG = 250
 
 PERIOD_LIST_ALL = [DAY, WEEK, MONTH]
 
@@ -154,6 +157,12 @@ def get_trade_signal(stock_list=None, data_dir_by_date=None):
         df_ma_day_short_down = pd.DataFrame()
         df_ma_day_mid_down = pd.DataFrame()
         df_ma_day_long_down = pd.DataFrame()
+        df_up_cross_ma_day_short = pd.DataFrame()
+        df_up_cross_ma_day_mid = pd.DataFrame()
+        df_up_cross_ma_day_long = pd.DataFrame()
+        df_down_cross_ma_day_short = pd.DataFrame()
+        df_down_cross_ma_day_mid = pd.DataFrame()
+        df_down_cross_ma_day_long = pd.DataFrame()
         for code in stock_list:
             for period in PERIOD_LIST_ALL:
                 stock = sd.StockData(code, date=data_dir_by_date)
@@ -163,141 +172,93 @@ def get_trade_signal(stock_list=None, data_dir_by_date=None):
                 latest_date_str = stock_processed_data.getLatestDateStr()
                 if period == DAY:
                     for period_day in PERIOD_LIST_MA_START_TO_UP:
-                        ma_name = 'MA' + str(period_day)
-                        start_up = stock_processed_data.isMaStartUp(ma_name)
-                        start_down = stock_processed_data.isMaStartDown(ma_name)
+                        start_up = stock_processed_data.isMaStartUp(period_day)
+                        start_down = stock_processed_data.isMaStartDown(period_day)
+                        cross_up = stock_processed_data.isClosePriceCrossUpMa(period_day)
+                        cross_down = stock_processed_data.isClosePriceCrossDownMa(period_day)
+
                         if start_up is True:
-                            key = 'is_ma_' + str(period_day) + '_up'
-                            data = {'aCode': [stock_processed_data.code],
-                                    'aName': [stock_processed_data.name],
+                            key = 'is_ma_' + str(period_day) + '_start_up'
+                            data = {'Code': [stock_processed_data.code],
+                                    'Name': [stock_processed_data.name],
                                     key: [start_up]
                                     }
                             df_up = pd.DataFrame(data)
-                            if period_day == MA_SHORT:
-                                if len(df_ma_day_short_up) > 0:
-                                    df_ma_day_short_up = df_ma_day_short_up.append(df_up)
-                                else:
-                                    df_ma_day_short_up = df_up
-                            if period_day == MA_MID:
-                                if len(df_ma_day_mid_up) > 0:
-                                    df_ma_day_mid_up = df_ma_day_mid_up.append(df_up)
-                                else:
-                                    df_ma_day_mid_up = df_up
-                            if period_day == MA_LONG:
-                                if len(df_ma_day_long_up) > 0:
-                                    df_ma_day_long_up = df_ma_day_long_up.append(df_up)
-                                else:
-                                    df_ma_day_long_up = df_up
+                            df_ma_day_short_up = util.save_data_into_data_frame(period_day, MA_SHORT, df_ma_day_short_up, df_up)
+                            df_ma_day_mid_up = util.save_data_into_data_frame(period_day, MA_MID, df_ma_day_mid_up, df_up)
+                            df_ma_day_long_up = util.save_data_into_data_frame(period_day, MA_LONG, df_ma_day_long_up, df_up)
 
                         if start_down is True:
-                            key = 'is_ma_' + str(period_day) + '_down'
-                            data = {'aCode': [stock_processed_data.code],
-                                    'aName': [stock_processed_data.name],
+                            key = 'is_ma_' + str(period_day) + '_start_down'
+                            data = {'Code': [stock_processed_data.code],
+                                    'Name': [stock_processed_data.name],
                                     key: [start_down]
                                     }
                             df_down = pd.DataFrame(data)
-                            if period_day == MA_SHORT:
-                                if len(df_ma_day_short_down) > 0:
-                                    df_ma_day_short_down = df_ma_day_short_down.append(df_down)
-                                else:
-                                    df_ma_day_short_down = df_down
-                            if period_day == MA_MID:
-                                if len(df_ma_day_mid_down) > 0:
-                                    df_ma_day_mid_down = df_ma_day_mid_down.append(df_down)
-                                else:
-                                    df_ma_day_mid_down = df_down
-                            if period_day == MA_LONG:
-                                if len(df_ma_day_long_down) > 0:
-                                    df_ma_day_long_down = df_ma_day_long_down.append(df_down)
-                                else:
-                                    df_ma_day_long_down = df_down
+                            df_ma_day_short_down = util.save_data_into_data_frame(period_day, MA_SHORT, df_ma_day_short_down, df_down)
+                            df_ma_day_mid_down = util.save_data_into_data_frame(period_day, MA_MID, df_ma_day_mid_down, df_down)
+                            df_ma_day_long_down = util.save_data_into_data_frame(period_day, MA_LONG, df_ma_day_long_down, df_down)
+
+                        if cross_up is True:
+                            key = 'is_close_price_up_cross_ma_' + str(period_day)
+                            data = {'Code': [stock_processed_data.code],
+                                    'Name': [stock_processed_data.name],
+                                    key: [cross_up]
+                                    }
+                            df_cross_up = pd.DataFrame(data)
+                            df_up_cross_ma_day_short = util.save_data_into_data_frame(period_day, MA_SHORT, df_up_cross_ma_day_short, df_cross_up)
+                            df_up_cross_ma_day_mid = util.save_data_into_data_frame(period_day, MA_MID, df_up_cross_ma_day_mid, df_cross_up)
+                            df_up_cross_ma_day_long = util.save_data_into_data_frame(period_day, MA_LONG, df_up_cross_ma_day_long, df_cross_up)
+
+                        if cross_down is True:
+                            key = 'is_close_price_down_cross_ma_' + str(period_day)
+                            data = {'Code': [stock_processed_data.code],
+                                    'Name': [stock_processed_data.name],
+                                    key: [cross_down]
+                                    }
+                            df_cross_down = pd.DataFrame(data)
+                            df_down_cross_ma_day_short = util.save_data_into_data_frame(period_day, MA_SHORT, df_down_cross_ma_day_short, df_cross_down)
+                            df_down_cross_ma_day_mid = util.save_data_into_data_frame(period_day, MA_MID, df_down_cross_ma_day_mid, df_cross_down)
+                            df_down_cross_ma_day_long = util.save_data_into_data_frame(period_day, MA_LONG, df_down_cross_ma_day_long, df_cross_down)
 
                 if stock_processed_data.isCrossBullBandCurrently() is True:
                     df_cross = stock_processed_data.getLatestGenData()
                     df_cross = df_cross.loc[:, ['trade_date', 'flag_cross_top', 'flag_cross_bottom', 'flag_mid_up']]
-                    df_cross['aCode'] = stock_processed_data.code
-                    df_cross['aName'] = stock_processed_data.name
-                    if period == DAY:
-                        if len(df_day_bull_cross) > 0:
-                            df_day_bull_cross = df_day_bull_cross.append(df_cross)
-                        else:
-                            df_day_bull_cross = df_cross
-                    elif period == WEEK:
-                        if len(df_week_bull_cross) > 0:
-                            df_week_bull_cross = df_week_bull_cross.append(df_cross)
-                        else:
-                            df_week_bull_cross = df_cross
-                    elif period == MONTH:
-                        if len(df_month_bull_cross) > 0:
-                            df_month_bull_cross = df_month_bull_cross.append(df_cross)
-                        else:
-                            df_month_bull_cross = df_cross
-                    else:
-                        print("[File:%s line:%d stock:%s] Error: invalid value for period!" % (
-                            sys._getframe().f_code.co_filename, sys._getframe().f_lineno, stock_processed_data.code))
-                        sys.exit()
+                    df_cross['Code'] = stock_processed_data.code
+                    df_cross['Name'] = stock_processed_data.name
+                    df_day_bull_cross = util.save_data_into_data_frame(period, DAY, df_day_bull_cross, df_cross)
+                    df_week_bull_cross = util.save_data_into_data_frame(period, WEEK, df_week_bull_cross, df_cross)
+                    df_month_bull_cross = util.save_data_into_data_frame(period, MONTH, df_month_bull_cross, df_cross)
+
                 if have_deviation_data is True:
                     latest_deviation_date_str = stock_processed_data.getLatestDeviationDateStr()
                     if latest_deviation_date_str == latest_date_str:
                         latest_date = stock_processed_data.getLatestDate()
                         df_deviation = stock_processed_data.getDeviationDateData(latest_date)
-                        if period == DAY:
-                            if len(df_day_deviation) > 0:
-                                df_day_deviation = df_day_deviation.append(df_deviation)
-                            else:
-                                df_day_deviation = df_deviation
-                        elif period == WEEK:
-                            if len(df_week_deviation) > 0:
-                                df_week_deviation = df_week_deviation.append(df_deviation)
-                            else:
-                                df_week_deviation = df_deviation
-                        elif period == MONTH:
-                            if len(df_month_deviation) > 0:
-                                df_month_deviation = df_month_deviation.append(df_deviation)
-                            else:
-                                df_month_deviation = df_deviation
-                        else:
-                            print("[File:%s line:%d stock:%s] Error: invalid value for period!" % (
-                                sys._getframe().f_code.co_filename, sys._getframe().f_lineno,
-                                stock_processed_data.code))
-                            sys.exit()
-        if len(df_day_bull_cross) > 0:
-            file_path = util.get_cross_bull_signal_file_path(DAY, SIGNAL_CROSS_BULL)
-            util.write_signal_into_csv(df_day_bull_cross, file_path)
-        if len(df_week_bull_cross) > 0:
-            file_path = util.get_cross_bull_signal_file_path(WEEK, SIGNAL_CROSS_BULL)
-            util.write_signal_into_csv(df_week_bull_cross, file_path)
-        if len(df_month_bull_cross) > 0:
-            file_path = util.get_cross_bull_signal_file_path(MONTH, SIGNAL_CROSS_BULL)
-            util.write_signal_into_csv(df_month_bull_cross, file_path)
-        if len(df_day_deviation) > 0:
-            file_path = util.get_cross_bull_signal_file_path(DAY, SIGNAL_MACD_DEVIATION)
-            util.write_signal_into_csv(df_day_deviation, file_path)
-        if len(df_week_deviation) > 0:
-            file_path = util.get_cross_bull_signal_file_path(WEEK, SIGNAL_MACD_DEVIATION)
-            util.write_signal_into_csv(df_week_deviation, file_path)
-        if len(df_month_deviation) > 0:
-            file_path = util.get_cross_bull_signal_file_path(MONTH, SIGNAL_MACD_DEVIATION)
-            util.write_signal_into_csv(df_month_deviation, file_path)
+                        df_day_deviation = util.save_data_into_data_frame(period, DAY, df_day_deviation, df_deviation)
+                        df_week_deviation = util.save_data_into_data_frame(period, WEEK, df_week_deviation, df_deviation)
+                        df_month_deviation = util.save_data_into_data_frame(period, MONTH, df_month_deviation, df_deviation)
 
-        if len(df_ma_day_short_up) > 0:
-            file_path = util.get_ma_up_down_signal_file_path(MA_SHORT, SIGNAL_MA_UP)
-            util.write_signal_into_csv(df_ma_day_short_up, file_path)
-        if len(df_ma_day_mid_up) > 0:
-            file_path = util.get_ma_up_down_signal_file_path(MA_MID, SIGNAL_MA_UP)
-            util.write_signal_into_csv(df_ma_day_mid_up, file_path)
-        if len(df_ma_day_long_up) > 0:
-            file_path = util.get_ma_up_down_signal_file_path(MA_LONG, SIGNAL_MA_UP)
-            util.write_signal_into_csv(df_ma_day_long_up, file_path)
-        if len(df_ma_day_short_down) > 0:
-            file_path = util.get_ma_up_down_signal_file_path(MA_SHORT, SIGNAL_MA_DOWN)
-            util.write_signal_into_csv(df_ma_day_short_down, file_path)
-        if len(df_ma_day_mid_down) > 0:
-            file_path = util.get_ma_up_down_signal_file_path(MA_MID, SIGNAL_MA_DOWN)
-            util.write_signal_into_csv(df_ma_day_mid_down, file_path)
-        if len(df_ma_day_long_down) > 0:
-            file_path = util.get_ma_up_down_signal_file_path(MA_LONG, SIGNAL_MA_DOWN)
-            util.write_signal_into_csv(df_ma_day_long_down, file_path)
+        util.save_signal_into_csv(df_day_bull_cross, DAY, SIGNAL_CROSS_BULL)
+        util.save_signal_into_csv(df_week_bull_cross, WEEK, SIGNAL_CROSS_BULL)
+        util.save_signal_into_csv(df_month_bull_cross, MONTH, SIGNAL_CROSS_BULL)
+        util.save_signal_into_csv(df_day_deviation, DAY, SIGNAL_MACD_DEVIATION)
+        util.save_signal_into_csv(df_week_deviation, WEEK, SIGNAL_MACD_DEVIATION)
+        util.save_signal_into_csv(df_month_deviation, MONTH, SIGNAL_MACD_DEVIATION)
+
+        util.save_signal_into_csv(df_ma_day_short_up, MA_SHORT, SIGNAL_MA_UP)
+        util.save_signal_into_csv(df_ma_day_mid_up, MA_MID, SIGNAL_MA_UP)
+        util.save_signal_into_csv(df_ma_day_long_up, MA_LONG, SIGNAL_MA_UP)
+        util.save_signal_into_csv(df_ma_day_short_down, MA_SHORT, SIGNAL_MA_DOWN)
+        util.save_signal_into_csv(df_ma_day_mid_down, MA_MID, SIGNAL_MA_DOWN)
+        util.save_signal_into_csv(df_ma_day_long_down, MA_LONG, SIGNAL_MA_DOWN)
+
+        util.save_signal_into_csv(df_up_cross_ma_day_short, MA_SHORT, SIGNAL_UP_CROSS_MA)
+        util.save_signal_into_csv(df_up_cross_ma_day_mid, MA_MID, SIGNAL_UP_CROSS_MA)
+        util.save_signal_into_csv(df_up_cross_ma_day_long, MA_LONG, SIGNAL_UP_CROSS_MA)
+        util.save_signal_into_csv(df_down_cross_ma_day_short, MA_SHORT, SIGNAL_DOWN_CROSS_MA)
+        util.save_signal_into_csv(df_down_cross_ma_day_mid, MA_MID, SIGNAL_DOWN_CROSS_MA)
+        util.save_signal_into_csv(df_down_cross_ma_day_long, MA_LONG, SIGNAL_DOWN_CROSS_MA)
 
 
 class DataProcess(object):
@@ -367,29 +328,81 @@ class DataProcess(object):
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code, self.dataGenCsvFile))
             sys.exit()
 
-    def isMaStartUp(self, ma_name):
-        length = len(self.dfDeviationData)
+    def isClosePriceCrossUpMa(self, period):
+        length = len(self.dfGenData)
         if length > 0:
-            if ma_name in self.dfDeviationData.columns:
+            ma_name = 'MA' + str(period)
+            if ma_name in self.dfGenData.columns:
                 index_last_1 = length - 1
                 index_last_2 = length - 2
-                index_last_3 = length - 3
-                if index_last_1 > 0 and index_last_2 > 0 and index_last_3 > 0:
-                    if self.dfDeviationData.at[index_last_1, ma_name] > self.dfDeviationData.at[index_last_2, ma_name] and self.dfDeviationData.at[index_last_2, ma_name] <= self.dfDeviationData.at[index_last_3, ma_name]:
+                if index_last_1 >= 0 and index_last_2 >= 0:
+                    if self.dfGenData.at[index_last_1, 'close'] > self.dfGenData.at[index_last_1, ma_name] and self.dfGenData.at[index_last_2, 'close'] <= self.dfGenData.at[index_last_2, ma_name]:
                         return True
+        else:
+            print('[File:%s line:%d stock:%s] Error: no generate data in csv files!' % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
+            sys.exit()
 
         return False
 
-    def isMaStartDown(self, ma_name):
-        length = len(self.dfDeviationData)
+    def isClosePriceCrossDownMa(self, period):
+        length = len(self.dfGenData)
         if length > 0:
-            if ma_name in self.dfDeviationData.columns:
+            ma_name = 'MA' + str(period)
+            if ma_name in self.dfGenData.columns:
+                index_last_1 = length - 1
+                index_last_2 = length - 2
+                if index_last_1 >= 0 and index_last_2 >= 0:
+                    if self.dfGenData.at[index_last_1, 'close'] < self.dfGenData.at[index_last_1, ma_name] and self.dfGenData.at[index_last_2, 'close'] >= self.dfGenData.at[index_last_2, ma_name]:
+                        return True
+        else:
+            print('[File:%s line:%d stock:%s] Error: no generate data in csv files!' % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
+            sys.exit()
+
+        return False
+
+    def isMaStartUp(self, period):
+        length = len(self.dfGenData)
+        if length > 0:
+            ma_name = 'MA' + str(period)
+            if ma_name in self.dfGenData.columns:
                 index_last_1 = length - 1
                 index_last_2 = length - 2
                 index_last_3 = length - 3
-                if index_last_1 > 0 and index_last_2 > 0 and index_last_3 > 0:
-                    if self.dfDeviationData.at[index_last_1, ma_name] < self.dfDeviationData.at[index_last_2, ma_name] and self.dfDeviationData.at[index_last_2, ma_name] >= self.dfDeviationData.at[index_last_3, ma_name]:
+                if index_last_1 >= 0 and index_last_2 >= 0 and index_last_3 >= 0:
+                    if self.dfGenData.at[index_last_1, ma_name] > self.dfGenData.at[index_last_2, ma_name] and self.dfGenData.at[index_last_2, ma_name] <= self.dfGenData.at[index_last_3, ma_name]:
                         return True
+                else:
+                    print('[File:%s line:%d stock:%s] Error: not enough data to handle!' % (
+                        sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
+                    sys.exit()
+        else:
+            print('[File:%s line:%d stock:%s] Error: no generate data in csv files!' % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
+            sys.exit()
+
+        return False
+
+    def isMaStartDown(self, period):
+        length = len(self.dfGenData)
+        if length > 0:
+            ma_name = 'MA' + str(period)
+            if ma_name in self.dfGenData.columns:
+                index_last_1 = length - 1
+                index_last_2 = length - 2
+                index_last_3 = length - 3
+                if index_last_1 >= 0 and index_last_2 >= 0 and index_last_3 >= 0:
+                    if self.dfGenData.at[index_last_1, ma_name] < self.dfGenData.at[index_last_2, ma_name] and self.dfGenData.at[index_last_2, ma_name] >= self.dfGenData.at[index_last_3, ma_name]:
+                        return True
+                else:
+                    print('[File:%s line:%d stock:%s] Error: not enough data to handle!' % (
+                        sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
+                    sys.exit()
+        else:
+            print('[File:%s line:%d stock:%s] Error: no generate data in csv files!' % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
+            sys.exit()
 
         return False
 
@@ -766,9 +779,9 @@ def job_update_and_generate_data_daily():
     code_list = list(set(code_list))
     # code_list = ['000002']
     util.transfer_code_as_ts_code(code_list)
-    sd.download_stock_data_as_csv(code_list, dataDate)
-    sd.update_stock_data_for_list(code_list, dataDate)
-    generate_more_data_for_all_stocks(code_list, dataDate)
+    # sd.download_stock_data_as_csv(code_list, dataDate)
+    # sd.update_stock_data_for_list(code_list, dataDate)
+    # generate_more_data_for_all_stocks(code_list, dataDate)
     get_trade_signal(code_list, dataDate)
 
 

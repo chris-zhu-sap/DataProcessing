@@ -3,6 +3,7 @@ import platform
 import time
 import os
 import data_process as dp
+import pandas as pd
 
 SIGNAL_FILES_DIR = 'trade-signal-file'
 
@@ -40,16 +41,11 @@ def get_delimiter():
         return '/'
 
 
-def get_cross_bull_signal_file_path(period, sig_name):
+def get_signal_file_path(period, sig_name):
     time_format = time.strftime("%Y_%m_%d_", time.localtime())
-    file_path = SIGNAL_FILES_DIR + get_delimiter() + time_format + sig_name + '_' + dic_period[period] + '.csv'
-    return file_path
-
-
-def get_ma_up_down_signal_file_path(period, sig_name):
-    time_format = time.strftime("%Y_%m_%d_", time.localtime())
-    file_path = SIGNAL_FILES_DIR + get_delimiter() + time_format + sig_name + '_' + period + '.csv'
-    return file_path
+    if isinstance(period, str):
+        return SIGNAL_FILES_DIR + get_delimiter() + time_format + sig_name + '_' + dic_period[period] + '.csv'
+    return SIGNAL_FILES_DIR + get_delimiter() + time_format + sig_name + '_' + str(period) + '.csv'
 
 
 def write_signal_into_csv(df, file_path):
@@ -63,3 +59,18 @@ def create_report_dir():
     isExists = os.path.exists(SIGNAL_FILES_DIR)
     if not isExists:
         os.makedirs(SIGNAL_FILES_DIR)
+
+
+def save_signal_into_csv(df_data, period, sig_name):
+    if len(df_data) > 0:
+        file_path = get_signal_file_path(period, sig_name)
+        write_signal_into_csv(df_data, file_path)
+
+
+def save_data_into_data_frame(current_period, PERIOD, df_all, df_current):
+    if current_period == PERIOD:
+        if len(df_all) > 0:
+            df_all = df_all.append(df_current)
+        else:
+            df_all = df_current
+    return df_all

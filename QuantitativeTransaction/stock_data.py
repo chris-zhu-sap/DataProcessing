@@ -465,6 +465,7 @@ if __name__ == '__main__':
     file_name = get_name_and_code(zz500_stock_list_file_url)
     zz500_code_list = get_china_stock_list(zz500_stock_list_file_url, file_name, dataDate)
     print('The length of zz500_code_list is: %d!' % (len(zz500_code_list)))
+
     # my_code_list = ['000002']
     # print('The length of my_code_list is: %d' % len(my_code_list))
     # code_list = hs300_code_list + zz500_code_list + my_code_list
