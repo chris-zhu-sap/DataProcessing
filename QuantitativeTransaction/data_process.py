@@ -72,8 +72,12 @@ def generate_more_data_for_all_stocks(stock_list, data_dir_by_date):
             sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
         sys.exit()
     else:
+        length_of_code_list = len(stock_list)
+        index = 1
         for code in stock_list:
             generate_more_data_for_all_period(code, data_dir_by_date)
+            print("#### Process to generate new data of %d/%d ####" % (index, length_of_code_list))
+            index = index + 1
 
 
 def update_generated_data_for_all_period(stock_code=None, data_dir_by_date=None):
@@ -84,12 +88,12 @@ def update_generated_data_for_all_period(stock_code=None, data_dir_by_date=None)
             length = stock.getDataLenUpdated()
             if length > 0:
                 p_stock = DataProcess(stock_code, stock.getStockName(), data_dir_by_date, period)
-                p_stock.readData()
-                p_stock.addMA(PERIOD_LIST_MA)
-                p_stock.addMACD()
-                p_stock.saveAsGeneratedData()
-                p_stock.generateDeviationByMACD(PERIOD_LIST_DEV, last_n_periods=length, update=True,
-                                                update_report_for_latest_data=True)
+                # p_stock.readData()
+                # p_stock.addMA(PERIOD_LIST_MA)
+                # p_stock.addMACD()
+                # p_stock.saveAsGeneratedData()
+                # p_stock.generateDeviationByMACD(PERIOD_LIST_DEV, last_n_periods=length, update=True,
+                #                                 update_report_for_latest_data=True)
                 print(
                     "[File:%s line:%d] Message: update generated data for stock:%s of Period:%s has been done!" % (
                         sys._getframe().f_code.co_filename, sys._getframe().f_lineno, stock_code, period))
@@ -112,38 +116,14 @@ def update_generated_data_for_all_stocks(stock_list=None, data_dir_by_date=None)
             update_generated_data_for_all_period(code, data_dir_by_date)
 
 
-def get_current_trade_report_for_all_period(stock_code=None, data_dir_by_date=None):
-    if stock_code is not None and data_dir_by_date is not None:
-        for period in PERIOD_LIST_ALL:
-            stock = sd.StockData(stock_code, date=data_dir_by_date)
-            p_stock = DataProcess(stock_code, stock.getStockName(), data_dir_by_date, period)
-            p_stock.readGenData()
-            p_stock.generateDeviationByMACD(PERIOD_LIST_DEV, last_n_periods=1,
-                                            update_report_for_current_trade_data=True)
-            print(
-                f"[File:{sys._getframe().f_code.co_filename} line:{sys._getframe().f_lineno}] Message: update generated data for stock:{stock_code} of Period:{period} has been done!")
-    else:
-        print(
-            f"[File:{sys._getframe().f_code.co_filename} line:{sys._getframe().f_lineno}] Error: Parameters should not be empty!")
-        sys.exit()
-
-
-def get_current_trade_report(stock_list=None, data_dir_by_date=None):
-    if stock_list is None or not len(stock_list) or data_dir_by_date is None:
+def get_trade_signal(stock_list=None, data_dir_by_date=None, concerned_stock_code_list=None):
+    if stock_list is None or len(stock_list) == 0 or data_dir_by_date is None or concerned_stock_code_list is None \
+            or len(concerned_stock_code_list) == 0:
         print(
             f"[File:{sys._getframe().f_code.co_filename} line:{sys._getframe().f_lineno}] Error: Parameters should not be empty!")
         sys.exit()
     else:
-        for code in stock_list:
-            get_current_trade_report_for_all_period(code, data_dir_by_date)
-
-
-def get_trade_signal(stock_list=None, data_dir_by_date=None):
-    if stock_list is None or not len(stock_list) or data_dir_by_date is None:
-        print(
-            f"[File:{sys._getframe().f_code.co_filename} line:{sys._getframe().f_lineno}] Error: Parameters should not be empty!")
-        sys.exit()
-    else:
+        util.transfer_code_as_ts_code(concerned_stock_code_list)
         util.create_report_dir()
         df_day_bull_cross = pd.DataFrame()
         df_week_bull_cross = pd.DataFrame()
@@ -163,7 +143,11 @@ def get_trade_signal(stock_list=None, data_dir_by_date=None):
         df_down_cross_ma_day_short = pd.DataFrame()
         df_down_cross_ma_day_mid = pd.DataFrame()
         df_down_cross_ma_day_long = pd.DataFrame()
+        length_of_code_list = len(stock_list)
+        index = 1
         for code in stock_list:
+            print("#### Process to generate trade signal of %d/%d ####" % (index, length_of_code_list))
+            index = index + 1
             for period in PERIOD_LIST_ALL:
                 stock = sd.StockData(code, date=data_dir_by_date)
                 stock_processed_data = DataProcess(code, stock.getStockName(), data_dir_by_date, period)
@@ -179,65 +163,66 @@ def get_trade_signal(stock_list=None, data_dir_by_date=None):
 
                         if start_up is True:
                             key = 'is_ma_' + str(period_day) + '_start_up'
-                            data = {'Code': [stock_processed_data.code],
-                                    'Name': [stock_processed_data.name],
+                            data = {'code': [stock_processed_data.code],
+                                    'name': [stock_processed_data.name],
                                     key: [start_up]
                                     }
                             df_up = pd.DataFrame(data)
-                            df_ma_day_short_up = util.save_data_into_data_frame(period_day, MA_SHORT, df_ma_day_short_up, df_up)
-                            df_ma_day_mid_up = util.save_data_into_data_frame(period_day, MA_MID, df_ma_day_mid_up, df_up)
-                            df_ma_day_long_up = util.save_data_into_data_frame(period_day, MA_LONG, df_ma_day_long_up, df_up)
+                            df_ma_day_short_up = util.save_data_into_data_frame(period_day, MA_SHORT, df_ma_day_short_up, df_up, concerned_stock_code_list)
+                            df_ma_day_mid_up = util.save_data_into_data_frame(period_day, MA_MID, df_ma_day_mid_up, df_up, concerned_stock_code_list)
+                            df_ma_day_long_up = util.save_data_into_data_frame(period_day, MA_LONG, df_ma_day_long_up, df_up, concerned_stock_code_list)
 
                         if start_down is True:
                             key = 'is_ma_' + str(period_day) + '_start_down'
-                            data = {'Code': [stock_processed_data.code],
-                                    'Name': [stock_processed_data.name],
+                            data = {'code': [stock_processed_data.code],
+                                    'name': [stock_processed_data.name],
                                     key: [start_down]
                                     }
                             df_down = pd.DataFrame(data)
-                            df_ma_day_short_down = util.save_data_into_data_frame(period_day, MA_SHORT, df_ma_day_short_down, df_down)
-                            df_ma_day_mid_down = util.save_data_into_data_frame(period_day, MA_MID, df_ma_day_mid_down, df_down)
-                            df_ma_day_long_down = util.save_data_into_data_frame(period_day, MA_LONG, df_ma_day_long_down, df_down)
+                            df_ma_day_short_down = util.save_data_into_data_frame(period_day, MA_SHORT, df_ma_day_short_down, df_down, concerned_stock_code_list)
+                            df_ma_day_mid_down = util.save_data_into_data_frame(period_day, MA_MID, df_ma_day_mid_down, df_down, concerned_stock_code_list)
+                            df_ma_day_long_down = util.save_data_into_data_frame(period_day, MA_LONG, df_ma_day_long_down, df_down, concerned_stock_code_list)
 
                         if cross_up is True:
                             key = 'is_close_price_up_cross_ma_' + str(period_day)
-                            data = {'Code': [stock_processed_data.code],
-                                    'Name': [stock_processed_data.name],
+                            data = {'code': [stock_processed_data.code],
+                                    'name': [stock_processed_data.name],
                                     key: [cross_up]
                                     }
                             df_cross_up = pd.DataFrame(data)
-                            df_up_cross_ma_day_short = util.save_data_into_data_frame(period_day, MA_SHORT, df_up_cross_ma_day_short, df_cross_up)
-                            df_up_cross_ma_day_mid = util.save_data_into_data_frame(period_day, MA_MID, df_up_cross_ma_day_mid, df_cross_up)
-                            df_up_cross_ma_day_long = util.save_data_into_data_frame(period_day, MA_LONG, df_up_cross_ma_day_long, df_cross_up)
+                            df_up_cross_ma_day_short = util.save_data_into_data_frame(period_day, MA_SHORT, df_up_cross_ma_day_short, df_cross_up, concerned_stock_code_list)
+                            df_up_cross_ma_day_mid = util.save_data_into_data_frame(period_day, MA_MID, df_up_cross_ma_day_mid, df_cross_up, concerned_stock_code_list)
+                            df_up_cross_ma_day_long = util.save_data_into_data_frame(period_day, MA_LONG, df_up_cross_ma_day_long, df_cross_up, concerned_stock_code_list)
 
                         if cross_down is True:
                             key = 'is_close_price_down_cross_ma_' + str(period_day)
-                            data = {'Code': [stock_processed_data.code],
-                                    'Name': [stock_processed_data.name],
+                            data = {'code': [stock_processed_data.code],
+                                    'name': [stock_processed_data.name],
                                     key: [cross_down]
                                     }
                             df_cross_down = pd.DataFrame(data)
-                            df_down_cross_ma_day_short = util.save_data_into_data_frame(period_day, MA_SHORT, df_down_cross_ma_day_short, df_cross_down)
-                            df_down_cross_ma_day_mid = util.save_data_into_data_frame(period_day, MA_MID, df_down_cross_ma_day_mid, df_cross_down)
-                            df_down_cross_ma_day_long = util.save_data_into_data_frame(period_day, MA_LONG, df_down_cross_ma_day_long, df_cross_down)
+                            df_down_cross_ma_day_short = util.save_data_into_data_frame(period_day, MA_SHORT, df_down_cross_ma_day_short, df_cross_down, concerned_stock_code_list)
+                            df_down_cross_ma_day_mid = util.save_data_into_data_frame(period_day, MA_MID, df_down_cross_ma_day_mid, df_cross_down, concerned_stock_code_list)
+                            df_down_cross_ma_day_long = util.save_data_into_data_frame(period_day, MA_LONG, df_down_cross_ma_day_long, df_cross_down, concerned_stock_code_list)
 
                 if stock_processed_data.isCrossBullBandCurrently() is True:
                     df_cross = stock_processed_data.getLatestGenData()
-                    df_cross = df_cross.loc[:, ['trade_date', 'flag_cross_top', 'flag_cross_bottom', 'flag_mid_up']]
-                    df_cross['Code'] = stock_processed_data.code
-                    df_cross['Name'] = stock_processed_data.name
-                    df_day_bull_cross = util.save_data_into_data_frame(period, DAY, df_day_bull_cross, df_cross)
-                    df_week_bull_cross = util.save_data_into_data_frame(period, WEEK, df_week_bull_cross, df_cross)
-                    df_month_bull_cross = util.save_data_into_data_frame(period, MONTH, df_month_bull_cross, df_cross)
+                    df_cross = df_cross.loc[:, ['flag_cross_top', 'flag_cross_bottom', 'flag_mid_up']]
+                    df_cross['code'] = stock_processed_data.code
+                    df_cross['name'] = stock_processed_data.name
+                    df_cross = df_cross[['code', 'name', 'flag_cross_top', 'flag_cross_bottom', 'flag_mid_up']]
+                    df_day_bull_cross = util.save_data_into_data_frame(period, DAY, df_day_bull_cross, df_cross, concerned_stock_code_list)
+                    df_week_bull_cross = util.save_data_into_data_frame(period, WEEK, df_week_bull_cross, df_cross, concerned_stock_code_list)
+                    df_month_bull_cross = util.save_data_into_data_frame(period, MONTH, df_month_bull_cross, df_cross, concerned_stock_code_list)
 
                 if have_deviation_data is True:
                     latest_deviation_date_str = stock_processed_data.getLatestDeviationDateStr()
                     if latest_deviation_date_str == latest_date_str:
                         latest_date = stock_processed_data.getLatestDate()
                         df_deviation = stock_processed_data.getDeviationDateData(latest_date)
-                        df_day_deviation = util.save_data_into_data_frame(period, DAY, df_day_deviation, df_deviation)
-                        df_week_deviation = util.save_data_into_data_frame(period, WEEK, df_week_deviation, df_deviation)
-                        df_month_deviation = util.save_data_into_data_frame(period, MONTH, df_month_deviation, df_deviation)
+                        df_day_deviation = util.save_data_into_data_frame(period, DAY, df_day_deviation, df_deviation, concerned_stock_code_list)
+                        df_week_deviation = util.save_data_into_data_frame(period, WEEK, df_week_deviation, df_deviation, concerned_stock_code_list)
+                        df_month_deviation = util.save_data_into_data_frame(period, MONTH, df_month_deviation, df_deviation, concerned_stock_code_list)
 
         util.save_signal_into_csv(df_day_bull_cross, DAY, SIGNAL_CROSS_BULL)
         util.save_signal_into_csv(df_week_bull_cross, WEEK, SIGNAL_CROSS_BULL)
@@ -328,6 +313,10 @@ class DataProcess(object):
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code, self.dataGenCsvFile))
             sys.exit()
 
+    def deleteDevFile(self):
+        if os.path.exists(self.deviationReportFile):
+            os.remove(self.deviationReportFile)
+
     def isClosePriceCrossUpMa(self, period):
         length = len(self.dfGenData)
         if length > 0:
@@ -336,7 +325,8 @@ class DataProcess(object):
                 index_last_1 = length - 1
                 index_last_2 = length - 2
                 if index_last_1 >= 0 and index_last_2 >= 0:
-                    if self.dfGenData.at[index_last_1, 'close'] > self.dfGenData.at[index_last_1, ma_name] and self.dfGenData.at[index_last_2, 'close'] <= self.dfGenData.at[index_last_2, ma_name]:
+                    if self.dfGenData.at[index_last_1, 'close'] > self.dfGenData.at[index_last_1, ma_name] \
+                            and self.dfGenData.at[index_last_2, 'close'] <= self.dfGenData.at[index_last_2, ma_name]:
                         return True
         else:
             print('[File:%s line:%d stock:%s] Error: no generate data in csv files!' % (
@@ -353,7 +343,8 @@ class DataProcess(object):
                 index_last_1 = length - 1
                 index_last_2 = length - 2
                 if index_last_1 >= 0 and index_last_2 >= 0:
-                    if self.dfGenData.at[index_last_1, 'close'] < self.dfGenData.at[index_last_1, ma_name] and self.dfGenData.at[index_last_2, 'close'] >= self.dfGenData.at[index_last_2, ma_name]:
+                    if self.dfGenData.at[index_last_1, 'close'] < self.dfGenData.at[index_last_1, ma_name] \
+                            and self.dfGenData.at[index_last_2, 'close'] >= self.dfGenData.at[index_last_2, ma_name]:
                         return True
         else:
             print('[File:%s line:%d stock:%s] Error: no generate data in csv files!' % (
@@ -371,7 +362,8 @@ class DataProcess(object):
                 index_last_2 = length - 2
                 index_last_3 = length - 3
                 if index_last_1 >= 0 and index_last_2 >= 0 and index_last_3 >= 0:
-                    if self.dfGenData.at[index_last_1, ma_name] > self.dfGenData.at[index_last_2, ma_name] and self.dfGenData.at[index_last_2, ma_name] <= self.dfGenData.at[index_last_3, ma_name]:
+                    if self.dfGenData.at[index_last_1, ma_name] > self.dfGenData.at[index_last_2, ma_name] \
+                            and self.dfGenData.at[index_last_2, ma_name] <= self.dfGenData.at[index_last_3, ma_name]:
                         return True
                 else:
                     print('[File:%s line:%d stock:%s] Error: not enough data to handle!' % (
@@ -393,7 +385,8 @@ class DataProcess(object):
                 index_last_2 = length - 2
                 index_last_3 = length - 3
                 if index_last_1 >= 0 and index_last_2 >= 0 and index_last_3 >= 0:
-                    if self.dfGenData.at[index_last_1, ma_name] < self.dfGenData.at[index_last_2, ma_name] and self.dfGenData.at[index_last_2, ma_name] >= self.dfGenData.at[index_last_3, ma_name]:
+                    if self.dfGenData.at[index_last_1, ma_name] < self.dfGenData.at[index_last_2, ma_name] \
+                            and self.dfGenData.at[index_last_2, ma_name] >= self.dfGenData.at[index_last_3, ma_name]:
                         return True
                 else:
                     print('[File:%s line:%d stock:%s] Error: not enough data to handle!' % (
@@ -416,7 +409,8 @@ class DataProcess(object):
     def getLatestDeviationDateStr(self):
         index_latest = len(self.dfDeviationData) - 1
         if index_latest >= 0:
-            return str(self.dfDeviationData.at[index_latest, 'dateCurrent'])
+            if 'date_current' in self.dfDeviationData.columns:
+                return str(self.dfDeviationData.at[index_latest, 'date_current'])
         else:
             print('[File:%s line:%d stock:%s] Error: deviation data is empty!' % (
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
@@ -425,7 +419,8 @@ class DataProcess(object):
     def getDeviationDateData(self, date):
         index_latest = len(self.dfDeviationData) - 1
         if index_latest >= 0:
-            return self.dfDeviationData[self.dfDeviationData['dateCurrent'] == date]
+            if 'date_current' in self.dfDeviationData.columns:
+                return self.dfDeviationData[self.dfDeviationData['date_current'] == date]
         else:
             print('[File:%s line:%d stock:%s] Error: deviation data is empty!' % (
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
@@ -613,7 +608,7 @@ class DataProcess(object):
             array_last_n_periods = range(last_n_periods)
             for last_period in reversed(array_last_n_periods):
                 duplicated_flag = False
-                for period in period_list:
+                for period in reversed(period_list):
                     if duplicated_flag:
                         break
                     if df_length >= (period + last_period):
@@ -633,20 +628,17 @@ class DataProcess(object):
                             if (data_df.at[index, 'low'] > data_df.at[index_last_day, 'low'] and data_df.at[
                                 index, 'dif'] <
                                     data_df.at[index_last_day, 'dif'] and index != index_start):
-                                data = {'aCode': [self.code],
-                                        'aName': [self.name],
-                                        'aType': ['底背离'],
-                                        'aPeriod': [period],
-                                        'dateCurrent': [data_df.at[index_last_day, 'trade_date']],
-                                        'dateOfLastDif': [data_df.at[index, 'trade_date']],
-                                        'difCurrent': [data_df.at[index_last_day, 'dif']],
-                                        'difLast': [data_df.at[index, 'dif']],
-                                        'deaCurrent': [data_df.at[index_last_day, 'dea']],
-                                        'deaLast': [data_df.at[index, 'dea']],
-                                        'macdCurrent': [data_df.at[index_last_day, 'macd']],
-                                        'macdLast': [data_df.at[index, 'macd']]
+                                data = {'code': [self.code],
+                                        'name': [self.name],
+                                        'type': ['底背离'],
+                                        'period': [period],
+                                        'date_current': [data_df.at[index_last_day, 'trade_date']],
+                                        'date_of_last_dif': [data_df.at[index, 'trade_date']],
+                                        'dif_current': [data_df.at[index_last_day, 'dif']],
+                                        'dif_last': [data_df.at[index, 'dif']],
                                         }
                                 df_per = pd.DataFrame(data)
+                                df_per = df_per[['code', 'name', 'type', 'period', 'date_current', 'date_of_last_dif', 'dif_current', 'dif_last']]
                                 df = pd.concat([df, df_per])
                                 print('Add the bottom deviation data for the stock:%s on date:%s of period %d!' % (
                                     self.code, data_df.at[index_last_day, 'trade_date'], period))
@@ -671,6 +663,7 @@ class DataProcess(object):
                                     duplicated_flag = True
 
                         # 顶背离
+                        price_highest = 0
                         if last_period > 0:
                             price_highest = pd.Series(data_df['high'][-(period + last_period):-last_period]).max()
                         else:
@@ -684,20 +677,17 @@ class DataProcess(object):
                             if (data_df.at[index, 'high'] < data_df.at[index_last_day, 'high'] and data_df.at[
                                 index, 'dif'] >
                                     data_df.at[index_last_day, 'dif'] and index != index_start):
-                                data = {'aCode': [self.code],
-                                        'aName': [self.name],
-                                        'aType': ['顶背离'],
-                                        'aPeriod': [period],
-                                        'dateCurrent': [data_df.at[index_last_day, 'trade_date']],
-                                        'dateOfLastDif': [data_df.at[index, 'trade_date']],
-                                        'difCurrent': [data_df.at[index_last_day, 'dif']],
-                                        'difLast': [data_df.at[index, 'dif']],
-                                        'deaCurrent': [data_df.at[index_last_day, 'dea']],
-                                        'deaLast': [data_df.at[index, 'dea']],
-                                        'macdCurrent': [data_df.at[index_last_day, 'macd']],
-                                        'macdLast': [data_df.at[index, 'macd']]
+                                data = {'code': [self.code],
+                                        'name': [self.name],
+                                        'type': ['顶背离'],
+                                        'period': [period],
+                                        'date_current': [data_df.at[index_last_day, 'trade_date']],
+                                        'date_of_last_dif': [data_df.at[index, 'trade_date']],
+                                        'dif_current': [data_df.at[index_last_day, 'dif']],
+                                        'dif_last': [data_df.at[index, 'dif']]
                                         }
                                 df_per = pd.DataFrame(data)
+                                df_per = df_per[['code', 'name', 'type', 'period', 'date_current', 'date_of_last_dif', 'dif_current', 'dif_last']]
                                 df = pd.concat([df, df_per])
                                 print('Add the top deviation data for the stock:%s on date:%s of period %d!' % (
                                     self.code, data_df.at[index_last_day, 'trade_date'], period))
@@ -737,6 +727,7 @@ class DataProcess(object):
         self.addMACD()
         self.addKDJ()
         self.addBullBand()
+        self.deleteDevFile()
         self.generateDeviationByMACD(period_list=PERIOD_LIST_DEV, last_n_periods=1)
         # self.generateDeviationByMACD(PERIOD_LIST_DEV)
 
@@ -756,15 +747,15 @@ def job_update_and_generate_data_daily():
     #     code_list = list(set(code_list))
 
     # concerned stocks
-    code_list1 = ['002773', '600877', '601628', '300146', '600547', '601800', '002714', '688266', '601318', '300003']
+    code_list1 = ['002773', '600887', '300003', '300271', '601628', '603883', '300308', '000999']
     # cyclical stocks
-    code_list2 = ['000002', '600585', '601628', '300059', '601318', '600030', '601288', '600547', '601988', '601696', '600036', '300498', '601669']
+    code_list2 = ['600000', '002142', '601998', '600919', '601658', '601669', '601800', '000002', '600585', '601696', '601628', '600547', '300059', '601318', '600036', '600030']
     # foreign capital
-    code_list3 = ['002353', '000338', '000333', '300285', '000651', '601901', '002008', '600887', '600872', '002439', '300244', '603882', '300012', '300347', '603489', '002508', '600406', '300450', '600885', '002812']
+    code_list3 = ['000338', '600887', '002508', '300244', '603489', '002008', '601901', '000333', '002439', '000651']
     # tech stocks
-    code_list4 = ['300346', '688012', '605111', '000158', '688561', '300339', '002371', '300373']
+    code_list4 = ['300308', '600584', '688396', '300223', '603501', '002049', '300782', '603986', '688088', '300348', '688169', '300339', '300373', '300346', '605111', '688012', '002371']
     # pharmaceutical stocks
-    code_list5 = ['002382', '002223', '688690', '300358', '688399', '002422', '300725', '688180', '688505', '688266', '300142', '002773', '300003', '300009', '300558', '300146', '600276']
+    code_list5 = ['002603', '603858', '002287', '000999', '002317', '603392', '000538', '603087', '603882', '603883', '300482', '688690', '300358', '688399', '688266', '002773', '300003', '300146']
     # new energy
     code_list6 = ['002249', '601865', '300376', '002709', '002158', '002594', '601615', '002733', '002639', '688339', '600478', '002129', '603806']
     # yi mei
@@ -772,26 +763,31 @@ def job_update_and_generate_data_daily():
     # wine
     code_list8 = ['600779', '002304', '000799', '600809', '000858', '600519']
     # other
-    code_list9 = ['601888', '300296', '300251', '300348', '688201', '002959', '603587']
+    code_list9 = ['600388', '002714', '600660', '002505', '000156', '600390', '601919', '002179', '688201', '601888', '600195', '300413', '300251', '300296', '603587']
     # gas
     code_list10 = ['600777', '600256', '603393']
+    # code_list = ['600068']
     code_list = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8 + code_list9 + code_list10 + hs300_code_list + zz500_code_list
     code_list = list(set(code_list))
-    # code_list = ['000002']
+    code_list.sort()
+    code_list_top = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8 + code_list9 + code_list10
+    code_list_top = list(set(code_list_top))
     util.transfer_code_as_ts_code(code_list)
-    # sd.download_stock_data_as_csv(code_list, dataDate)
-    # sd.update_stock_data_for_list(code_list, dataDate)
-    # generate_more_data_for_all_stocks(code_list, dataDate)
-    get_trade_signal(code_list, dataDate)
+    sd.download_stock_data_as_csv(code_list, dataDate)
+    sd.update_stock_data_for_list(code_list, dataDate)
+    generate_more_data_for_all_stocks(code_list, dataDate)
+    get_trade_signal(code_list, dataDate, code_list_top)
 
 
 if __name__ == '__main__':
     # scheduler = BlockingScheduler()
-    # scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='mon-fri', hour=14, minute=0, misfire_grace_time=3600)
+    # scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='mon-fri', hour=10, minute=0, misfire_grace_time=3600)
     # scheduler.start()
 
     # don't use time Scheduler
     job_update_and_generate_data_daily()
+    util.zip_signal_files()
+    util.send_mail('chris_zhu_sap@163.com', 'WRUERXOXFUDWRBFM', 'chris_zhu_sap@163.com', 'send signal file', 'Hi Chris, \n  This is a test to send signal files!', util.get_signal_zip_file_path())
 
 
     # update_generated_data_for_all_stocks(code_list, dataDate)

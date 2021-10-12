@@ -126,6 +126,8 @@ def download_stock_data_as_csv(code_list_para=None, start_date=None):
     if code_list_para is None:
         code_list_para = df.index
 
+    length_of_code_list = len(code_list_para)
+    index = 1
     for ts_code in code_list_para:
         try:
             date_temp = df.loc[ts_code]['list_date']
@@ -136,6 +138,7 @@ def download_stock_data_as_csv(code_list_para=None, start_date=None):
 
             my_stock = StockData(ts_code, name, start_date)
             if my_stock.checkDataFilesDownloaded() is False:
+                print("#### Process to get data of %d/%d ####" % (index, length_of_code_list))
                 my_stock.getKDataAsCSV(k=DAY, start=date_to_market)
                 my_stock.getKDataAsCSV(k=WEEK, start=date_to_market)
                 my_stock.getKDataAsCSV(k=MONTH, start=date_to_market)
@@ -146,6 +149,7 @@ def download_stock_data_as_csv(code_list_para=None, start_date=None):
             print("[File: %s line:%d stock:%s Error:%s] Error happen when download the stock" % (
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, ts_code, e))
             sys.exit()
+        index = index + 1
 
 
 def update_stock_data_for_list(code_list_para=None, date=None, k=None, update_dir=False):
@@ -162,10 +166,14 @@ def update_stock_data_for_list(code_list_para=None, date=None, k=None, update_di
 
     df = get_df_from_basic_list(date)
 
+    length_of_code_list = len(code_list_para)
+    index = 1
+
     for ts_code in code_list_para:
         try:
             if ts_code in df.index:
                 update_stock_data(ts_code, date, k)
+                print("#### Process to update data of %d/%d ####" % (index, length_of_code_list))
             else:
                 print("[File:%s line:%d] The parameter code is not exists now!" % (
                     sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
@@ -174,6 +182,7 @@ def update_stock_data_for_list(code_list_para=None, date=None, k=None, update_di
             print("[File:%s line:%d stock:%s Error:%s] Error happen when update data for the stock" % (
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, ts_code, e))
             sys.exit()
+        index = index + 1
 
     if update_dir:
         today = time.strftime('%Y-%m-%d')
@@ -404,46 +413,48 @@ class StockData(object):
                     print("[File: %s line:%d]: Invalid time level when request data!" % (
                         sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
 
-                self.lenUpdated = len(df_latest)
-                if self.lenUpdated > 0:
-                    df_latest.drop('ts_code', axis=1, inplace=True)
-                    df = pd.concat([df, df_latest.sort_values(by='trade_date', ascending=True)])
-                    df.to_csv(file_path, index=False, float_format=FLOAT_FORMAT)
-                    df = df.reset_index(drop=True)
 
-                if k == WEEK or k == MONTH:
-                    index_last = len(df) - 1
-                    latest_date_int = int(df.at[index_last, 'trade_date'])
-                    df_day_data = pd.DataFrame()
-                    if os.path.exists(self.dayKDataFilePath):
-                        df_day_data = pd.read_csv(self.dayKDataFilePath)
-                    else:
-                        print("[File: %s line:%d]: can't find the data file for stock:%s freq:%s!" % (
-                            sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.stockCode, DAY))
-                        sys.exit()
-                    df_daily_data = df_day_data[df_day_data['trade_date'] > latest_date_int]
-                    if len(df_daily_data) > 0:
-                        df_daily_data = df_daily_data.reset_index(drop=True)
-                        index_last = len(df_daily_data) - 1
-                        open_price = df_daily_data.at[0, 'open']
-                        close_price = df_daily_data.at[index_last, 'close']
-                        high_price = pd.Series(df_daily_data['high']).max()
-                        low_price = pd.Series(df_daily_data['low']).min()
-                        trade_date = df_daily_data.at[index_last, 'trade_date']
-                        data = {'trade_date': [trade_date],
-                                'open': [open_price],
-                                'high': [high_price],
-                                'low': [low_price],
-                                'close': [close_price],
-                                'pre_close': [0],
-                                'change': [0],
-                                'pct_chg': [0],
-                                'vol': [0],
-                                'amount': [0],
-                                }
-                        df_data = pd.DataFrame(data)
-                        df = pd.concat([df, df_data.sort_values(by='trade_date', ascending=True)])
+                if df_latest is not None:
+                    self.lenUpdated = len(df_latest)
+                    if self.lenUpdated > 0:
+                        df_latest.drop('ts_code', axis=1, inplace=True)
+                        df = pd.concat([df, df_latest.sort_values(by='trade_date', ascending=True)])
                         df.to_csv(file_path, index=False, float_format=FLOAT_FORMAT)
+                        df = df.reset_index(drop=True)
+
+                    if k == WEEK or k == MONTH:
+                        index_last = len(df) - 1
+                        latest_date_int = int(df.at[index_last, 'trade_date'])
+                        df_day_data = pd.DataFrame()
+                        if os.path.exists(self.dayKDataFilePath):
+                            df_day_data = pd.read_csv(self.dayKDataFilePath)
+                        else:
+                            print("[File: %s line:%d]: can't find the data file for stock:%s freq:%s!" % (
+                                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.stockCode, DAY))
+                            sys.exit()
+                        df_daily_data = df_day_data[df_day_data['trade_date'] > latest_date_int]
+                        if len(df_daily_data) > 0:
+                            df_daily_data = df_daily_data.reset_index(drop=True)
+                            index_last = len(df_daily_data) - 1
+                            open_price = df_daily_data.at[0, 'open']
+                            close_price = df_daily_data.at[index_last, 'close']
+                            high_price = pd.Series(df_daily_data['high']).max()
+                            low_price = pd.Series(df_daily_data['low']).min()
+                            trade_date = df_daily_data.at[index_last, 'trade_date']
+                            data = {'trade_date': [trade_date],
+                                    'open': [open_price],
+                                    'high': [high_price],
+                                    'low': [low_price],
+                                    'close': [close_price],
+                                    'pre_close': [0],
+                                    'change': [0],
+                                    'pct_chg': [0],
+                                    'vol': [0],
+                                    'amount': [0],
+                                    }
+                            df_data = pd.DataFrame(data)
+                            df = pd.concat([df, df_data.sort_values(by='trade_date', ascending=True)])
+                            df.to_csv(file_path, index=False, float_format=FLOAT_FORMAT)
             else:
                 print("[File:%s line:%d]: No record can be found in the data file!" % (
                     sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
