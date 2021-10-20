@@ -7,7 +7,6 @@ import os
 import pandas as pd
 import sys
 from apscheduler.schedulers.blocking import BlockingScheduler
-from datetime import datetime
 import stock_data as sd
 import util
 
@@ -53,11 +52,11 @@ PERIOD_LIST_MA_START_TO_UP = [MA_SHORT, MA_MID, MA_LONG]
 DATA_DIR = 'data-root'
 
 
-def generate_more_data_for_all_period(stock_code=None, data_dir_by_date=None):
-    if stock_code is not None and data_dir_by_date is not None:
+def generate_more_data_for_all_period(stock_code=None, data_dir=None):
+    if stock_code is not None and data_dir is not None:
         for period in PERIOD_LIST_ALL:
-            stock_data = sd.StockData(stock_code, date=data_dir_by_date)
-            stock_obj = DataProcess(stock_code, stock_data.getStockName(), data_dir_by_date, period)
+            stock_data = sd.StockData(stock_code, data_dir=data_dir)
+            stock_obj = DataProcess(stock_code, stock_data.getStockName(), data_dir, period)
             stock_obj.makeGenData()
             stock_obj.saveAsGeneratedData()
             print("[File:%s line:%d] Message: generate data for stock:%s of period:%s has been done!" % (
@@ -82,14 +81,14 @@ def generate_more_data_for_all_stocks(stock_list, data_dir_by_date):
             index = index + 1
 
 
-def update_generated_data_for_all_period(stock_code=None, data_dir_by_date=None):
-    if stock_code is not None and data_dir_by_date is not None:
+def update_generated_data_for_all_period(stock_code=None, data_dir=None):
+    if stock_code is not None and data_dir is not None:
         for period in PERIOD_LIST_ALL:
-            stock = sd.StockData(stock_code, date=data_dir_by_date)
+            stock = sd.StockData(stock_code, data_dir=data_dir)
             stock.updateKData(period)
             length = stock.getDataLenUpdated()
             if length > 0:
-                p_stock = DataProcess(stock_code, stock.getStockName(), data_dir_by_date, period)
+                p_stock = DataProcess(stock_code, stock.getStockName(), data_dir, period)
                 # p_stock.readData()
                 # p_stock.addMA(PERIOD_LIST_MA)
                 # p_stock.addMACD()
@@ -108,18 +107,18 @@ def update_generated_data_for_all_period(stock_code=None, data_dir_by_date=None)
         sys.exit()
 
 
-def update_generated_data_for_all_stocks(stock_list=None, data_dir_by_date=None):
-    if stock_list is None or not len(stock_list) or data_dir_by_date is None:
+def update_generated_data_for_all_stocks(stock_list=None, data_dir=None):
+    if stock_list is None or not len(stock_list) or data_dir is None:
         print("[File:%s line:%d] Error: Parameters should not be empty!" % (
             sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
         sys.exit()
     else:
         for code in stock_list:
-            update_generated_data_for_all_period(code, data_dir_by_date)
+            update_generated_data_for_all_period(code, data_dir)
 
 
-def get_trade_signal(stock_list=None, data_dir_by_date=None, concerned_stock_code_list=None):
-    if stock_list is None or len(stock_list) == 0 or data_dir_by_date is None or concerned_stock_code_list is None \
+def get_trade_signal(stock_list=None, data_dir=None, concerned_stock_code_list=None):
+    if stock_list is None or len(stock_list) == 0 or data_dir is None or concerned_stock_code_list is None \
             or len(concerned_stock_code_list) == 0:
         print(
             f"[File:{sys._getframe().f_code.co_filename} line:{sys._getframe().f_lineno}] Error: Parameters should not be empty!")
@@ -151,8 +150,8 @@ def get_trade_signal(stock_list=None, data_dir_by_date=None, concerned_stock_cod
             print("#### Process to generate trade signal of %d/%d ####" % (index, length_of_code_list))
             index = index + 1
             for period in PERIOD_LIST_ALL:
-                stock = sd.StockData(code, date=data_dir_by_date)
-                stock_processed_data = DataProcess(code, stock.getStockName(), data_dir_by_date, period)
+                stock = sd.StockData(code, data_dir=data_dir)
+                stock_processed_data = DataProcess(code, stock.getStockName(), data_dir, period)
                 stock_processed_data.readGenData()
                 have_deviation_data = stock_processed_data.readDeviationData()
                 latest_date_str = stock_processed_data.getLatestDateStr()
@@ -768,8 +767,8 @@ def download_data_from_list():
                   '600195', '300413', '300251', '300296', '603587']
     # gas
     code_list10 = ['600777', '600256', '603393']
-    # code_list = ['000001']
-    code_list = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8 + code_list9 + code_list10 + hs300_code_list + zz500_code_list
+    code_list = ['000001']
+    # code_list = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8 + code_list9 + code_list10 + hs300_code_list + zz500_code_list
     code_list = list(set(code_list))
     code_list.sort()
     code_list_top = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8 + code_list9 + code_list10
@@ -797,9 +796,9 @@ if __name__ == '__main__':
     # scheduler.add_job(job_remove_old_data_weekly, 'cron', day_of_week='mon-fri', hour=10, minute=0,
     #                   misfire_grace_time=3600)
     # scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='mon-fri', hour=10, minute=0, misfire_grace_time=3600)
-    scheduler.add_job(job_remove_old_data_weekly, 'cron', day_of_week='wed', hour=10, minute=0,
+    scheduler.add_job(job_remove_old_data_weekly, 'cron', day_of_week='wed', hour=8, minute=15,
                       misfire_grace_time=3600)
-    scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='wed', hour=10, minute=1, misfire_grace_time=3600)
+    scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='wed', hour=8, minute=16, misfire_grace_time=3600)
     scheduler.start()
 
     # don't use time Scheduler

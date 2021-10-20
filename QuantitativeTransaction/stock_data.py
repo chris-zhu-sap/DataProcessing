@@ -10,7 +10,7 @@ import os
 import sys
 import urllib
 import re
-import datetime
+import data_process as dp
 import threading
 import shutil
 import util
@@ -57,13 +57,6 @@ def get_ts_pro():
     return pro
 
 
-# def get_china_stock_list(url, file_name, data_dir):
-#     file_with_path = os.path.join(data_dir, file_name)
-#     f = urllib.urlopen(url)
-#     data = f.read()
-#     with open(file_with_path, "wb") as code:
-#         code.write(data)
-
 def get_china_stock_list(url, file_name, data_dir):
     file_with_path = os.path.join(data_dir, file_name)
 
@@ -85,41 +78,33 @@ def get_name_and_code(url):
     return m.group(1) + m.group(2)
 
 
-def is_today(date):
-    today = time.strftime('%Y-%m-%d')
-    if date is None or date != today:
-        return False
-
-    return True
-
-
 def get_date():
     return time.strftime('%Y-%m-%d')
 
 
-def get_data_file_path(date=None):
-    if date is None:
-        dir_name_by_date = time.strftime('%Y-%m-%d')
-    else:
-        dir_name_by_date = date
+# def get_data_file_path(data_dir):
+#     if date is None:
+#         dir_name_by_date = time.strftime('%Y-%m-%d')
+#     else:
+#         dir_name_by_date = date
+#
+#     delimiter = util.get_delimiter()
+#
+#     return os.getcwd() + delimiter + dir_name_by_date + delimiter
 
-    delimiter = util.get_delimiter()
 
-    return os.getcwd() + delimiter + dir_name_by_date + delimiter
-
-
-def get_df_from_basic_list(date=None):
-    file_with_path = get_data_file_path(date) + "stock_basic_list.csv"
-    file_path = get_data_file_path(date)
-    if os.path.exists(file_path) is False:
-        os.makedirs(file_path)
+def get_df_from_basic_list(data_dir):
+    stock_basic_info_name = 'stock_basic_list.csv'
+    file_with_path = os.path.join(data_dir, stock_basic_info_name)
+    if os.path.exists(data_dir) is False:
+        os.makedirs(data_dir)
     instance = SingletonBasicStockInfo.getInstance(file_with_path)
 
     return instance.basicInfoDf
 
 
-def get_stock_name_by_code(stock_code, data_date=None):
-    df_basic = get_df_from_basic_list(data_date)
+def get_stock_name_by_code(stock_code, data_dir=None):
+    df_basic = get_df_from_basic_list(data_dir)
     df_search = df_basic[df_basic.ts_code == stock_code]
     if len(df_search) > 0:
         index = df_search.index.to_list()[0]
@@ -164,19 +149,19 @@ def download_stock_data_as_csv(code_list_para=None, start_date=None):
         index = index + 1
 
 
-def update_stock_data_for_list(code_list_para=None, date=None, k=None, update_dir=False):
+def update_stock_data_for_list(code_list_para=None, data_dir=None, k=None):
     if code_list_para is None or not len(code_list_para):
         print("[File:%s line:%d] The parameter code_list is None or empty!" % (
             sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
         sys.exit()
 
-    if date is None:
+    if data_dir is None:
         print(
             "[File:%s line:%d] The parameter date is empty!" % (
             sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
         sys.exit()
 
-    df = get_df_from_basic_list(date)
+    df = get_df_from_basic_list(data_dir)
 
     length_of_code_list = len(code_list_para)
     index = 1
@@ -185,7 +170,7 @@ def update_stock_data_for_list(code_list_para=None, date=None, k=None, update_di
         try:
             index_list = df.loc[df.ts_code == ts_code].index.to_list()
             if len(index_list) > 0:
-                update_stock_data(ts_code, date, k)
+                update_stock_data(ts_code, data_dir, k)
                 print("#### Process to update data of %d/%d ####" % (index, length_of_code_list))
             else:
                 print("[File:%s line:%d] The parameter code is not exists now!" % (
@@ -197,70 +182,57 @@ def update_stock_data_for_list(code_list_para=None, date=None, k=None, update_di
             sys.exit()
         index = index + 1
 
-    if update_dir:
-        today = time.strftime('%Y-%m-%d')
-        if today != date:
-            delimiter = util.get_delimiter()
-            oldDataPath = os.getcwd() + delimiter + date
-            newDataPath = os.getcwd() + delimiter + today
-            if os.path.exists(oldDataPath):
-                os.rename(oldDataPath, newDataPath)
-            else:
-                print("[File:%s line:%d]  oldDataPath: %s is not exists!" % (
-                    sys._getframe().f_code.co_filename, sys._getframe().f_lineno, oldDataPath))
-                sys.exit()
 
-
-def update_stock_data(code, date=None, k=None):
-    my_stock = StockData(stock_code=code, date=date)
+def update_stock_data(code, data_dir=None, k=None):
+    my_stock = StockData(stock_code=code, data_dir=data_dir)
     if k is None:
         my_stock.updateAllKData()
     else:
         my_stock.updateKData(k)
 
 
-def get_next_date(date_str):
-    if date_str is not None and date_str != '':
-        new_date_str = ''
-        m1 = re.match(r'(\d+)/(\d+)/(\d+)', date_str)
-        m2 = re.match(r'(\d+)-(\d+)-(\d+)', date_str)
-        if m1 is None and m2 is None:
-            print("[File:%s line:%d] The format of date is unexpected!" % (sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
-            sys.exit()
-        else:
-            if m1 is None:
-                new_date_str = date_str
-            else:
-                new_date_str = m1.group(3) + '-' + m1.group(1) + '-' + m1.group(2)
-        the_date = datetime.datetime.strptime(new_date_str, '%Y-%m-%d')
-        next_date = the_date + datetime.timedelta(days=1)
-        return datetime.datetime.strftime(next_date, "%Y-%m-%d")
-    else:
-        print("[File: %s line:%d]: The parameter dateStr is empty!" % (sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
-        sys.exit()
+# def get_next_date(date_str):
+#     if date_str is not None and date_str != '':
+#         new_date_str = ''
+#         m1 = re.match(r'(\d+)/(\d+)/(\d+)', date_str)
+#         m2 = re.match(r'(\d+)-(\d+)-(\d+)', date_str)
+#         if m1 is None and m2 is None:
+#             print("[File:%s line:%d] The format of date is unexpected!" % (sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
+#             sys.exit()
+#         else:
+#             if m1 is None:
+#                 new_date_str = date_str
+#             else:
+#                 new_date_str = m1.group(3) + '-' + m1.group(1) + '-' + m1.group(2)
+#         the_date = datetime.datetime.strptime(new_date_str, '%Y-%m-%d')
+#         next_date = the_date + datetime.timedelta(days=1)
+#         return datetime.datetime.strftime(next_date, "%Y-%m-%d")
+#     else:
+#         print("[File: %s line:%d]: The parameter dateStr is empty!" % (sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
+#         sys.exit()
 
 
 class StockData(object):
-    def __init__(self, stock_code, stock_name=None, date=None):
+    def __init__(self, stock_code, stock_name=None, data_dir=None):
         self.stockCode = stock_code
         self.lenUpdated = 0
         self.stockName = ''
-        self.dirNameByDate = ''
+        self.dataDir = ''
         self.dayKDataFilePath = ''
         self.weekKDataFilePath = ''
         self.monthKDataFilePath = ''
         self.hourKDataFilePath = ''
         self.dataPath = ''
         self.basicStockInfoFilePath = ''
-        self.setDirNameByDate(date)
+        self.setDataDir(data_dir)
         self.setDataPath()
         self.createDataDir()
         self.setDataFilePath()
-        self.setStockName(stock_name, date)
+        self.setStockName(stock_name, data_dir)
 
-    def setStockName(self, stock_name=None, date=None):
+    def setStockName(self, stock_name=None, data_dir=None):
         if stock_name is None:
-            self.stockName = get_stock_name_by_code(self.stockCode, date)
+            self.stockName = get_stock_name_by_code(self.stockCode, data_dir)
         else:
             self.stockName = stock_name
 
@@ -292,11 +264,8 @@ class StockData(object):
     def getDataLenUpdated(self):
         return self.lenUpdated
 
-    def setDirNameByDate(self, date=None):
-        if date is None:
-            self.dirNameByDate = time.strftime('%Y-%m-%d')
-        else:
-            self.dirNameByDate = date
+    def setDataDir(self, data_dir):
+        self.dataDir = data_dir
 
     def setDataFilePath(self):
         self.dayKDataFilePath = self.dataPath + util.get_delimiter() + self.stockCode + "_k_day.csv"
@@ -310,12 +279,10 @@ class StockData(object):
         return False
 
     def setDataPath(self, index_dir=None):
-        #         dirNameByDate = time.strftime('%Y%m%d')
         if not index_dir:
-            index_dir = self.dirNameByDate
-        delimiter = util.get_delimiter()
-        self.dataPath = os.getcwd() + delimiter + index_dir + delimiter + self.stockCode
-        self.basicStockInfoFilePath = os.getcwd() + delimiter + index_dir + delimiter
+            index_dir = self.dataDir
+        self.dataPath = os.path.join(index_dir, self.stockCode)
+        self.basicStockInfoFilePath = index_dir
 
     def createDataDir(self):
         isExists = os.path.exists(self.dataPath)
@@ -480,14 +447,13 @@ class StockData(object):
 
 
 if __name__ == '__main__':
-    dataDate = '2021-08-13'
-    zz500_stock_list_file_url = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000905cons.xls'
-    hs300_stock_list_file_url = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000300cons.xls'
+    zz500_stock_list_file_url = 'https://csi-web-dev.oss-cn-shanghai-finance-1-pub.aliyuncs.com/static/html/csindex/public/uploads/file/autofile/cons/000905cons.xls'
+    hs300_stock_list_file_url = 'https://csi-web-dev.oss-cn-shanghai-finance-1-pub.aliyuncs.com/static/html/csindex/public/uploads/file/autofile/cons/000300cons.xls'
     file_name = get_name_and_code(hs300_stock_list_file_url)
-    hs300_code_list = get_china_stock_list(hs300_stock_list_file_url, file_name, dataDate)
+    hs300_code_list = get_china_stock_list(hs300_stock_list_file_url, file_name, dp.DATA_DIR)
     print('The length of hs300_code_list is: %d!' % (len(hs300_code_list)))
     file_name = get_name_and_code(zz500_stock_list_file_url)
-    zz500_code_list = get_china_stock_list(zz500_stock_list_file_url, file_name, dataDate)
+    zz500_code_list = get_china_stock_list(zz500_stock_list_file_url, file_name, dp.DATA_DIR)
     print('The length of zz500_code_list is: %d!' % (len(zz500_code_list)))
 
     # my_code_list = ['000002']
