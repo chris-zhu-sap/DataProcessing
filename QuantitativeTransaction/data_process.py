@@ -50,6 +50,8 @@ PERIOD_LIST_DEV = [5, 10, 20, 30, 60, 120, 250]
 
 PERIOD_LIST_MA_START_TO_UP = [MA_SHORT, MA_MID, MA_LONG]
 
+DATA_DIR = 'data-root'
+
 
 def generate_more_data_for_all_period(stock_code=None, data_dir_by_date=None):
     if stock_code is not None and data_dir_by_date is not None:
@@ -732,67 +734,76 @@ class DataProcess(object):
         # self.generateDeviationByMACD(PERIOD_LIST_DEV)
 
 
-def job_update_and_generate_data_daily():
-    dataDate = '2021-08-13'
-
-    hs300_stock_list_file_url = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000300cons.xls'
+def download_data_from_list():
+    hs300_stock_list_file_url = 'https://csi-web-dev.oss-cn-shanghai-finance-1-pub.aliyuncs.com/static/html/csindex/public/uploads/file/autofile/cons/000300cons.xls'
     file_name = sd.get_name_and_code(hs300_stock_list_file_url)
-    hs300_code_list = sd.get_china_stock_list(hs300_stock_list_file_url, file_name, dataDate)
+    hs300_code_list = sd.get_china_stock_list(hs300_stock_list_file_url, file_name, DATA_DIR)
 
-    zz500StockListFileUrl = 'http://www.csindex.com.cn/uploads/file/autofile/cons/000905cons.xls'
+    zz500StockListFileUrl = 'https://csi-web-dev.oss-cn-shanghai-finance-1-pub.aliyuncs.com/static/html/csindex/public/uploads/file/autofile/cons/000905cons.xls'
     file_name = sd.get_name_and_code(zz500StockListFileUrl)
-    zz500_code_list = sd.get_china_stock_list(zz500StockListFileUrl, file_name, dataDate)
-
-    #     code_list = hs300_code_list + zz500_code_list + code_list
-    #     code_list = list(set(code_list))
+    zz500_code_list = sd.get_china_stock_list(zz500StockListFileUrl, file_name, DATA_DIR)
 
     # concerned stocks
     code_list1 = ['002773', '600887', '300003', '300271', '601628', '603883', '300308', '000999']
     # cyclical stocks
-    code_list2 = ['600000', '002142', '601998', '600919', '601658', '601669', '601800', '000002', '600585', '601696', '601628', '600547', '300059', '601318', '600036', '600030']
+    code_list2 = ['600000', '002142', '601998', '600919', '601658', '601669', '601800', '000002', '600585', '601696',
+                  '601628', '600547', '300059', '601318', '600036', '600030']
     # foreign capital
     code_list3 = ['000338', '600887', '002508', '300244', '603489', '002008', '601901', '000333', '002439', '000651']
     # tech stocks
-    code_list4 = ['300308', '600584', '688396', '300223', '603501', '002049', '300782', '603986', '688088', '300348', '688169', '300339', '300373', '300346', '605111', '688012', '002371']
+    code_list4 = ['300308', '600584', '688396', '300223', '603501', '002049', '300782', '603986', '688088', '300348',
+                  '688169', '300339', '300373', '300346', '605111', '688012', '002371']
     # pharmaceutical stocks
-    code_list5 = ['002603', '603858', '002287', '000999', '002317', '603392', '000538', '603087', '603882', '603883', '300482', '688690', '300358', '688399', '688266', '002773', '300003', '300146']
+    code_list5 = ['002603', '603858', '002287', '000999', '002317', '603392', '000538', '603087', '603882', '603883',
+                  '300482', '688690', '300358', '688399', '688266', '002773', '300003', '300146']
     # new energy
-    code_list6 = ['002249', '601865', '300376', '002709', '002158', '002594', '601615', '002733', '002639', '688339', '600478', '002129', '603806']
+    code_list6 = ['002249', '601865', '300376', '002709', '002158', '002594', '601615', '002733', '002639', '688339',
+                  '600478', '002129', '603806']
     # yi mei
     code_list7 = ['000963', '300896', '688363']
     # wine
     code_list8 = ['600779', '002304', '000799', '600809', '000858', '600519']
     # other
-    code_list9 = ['600388', '002714', '600660', '002505', '000156', '600390', '601919', '002179', '688201', '601888', '600195', '300413', '300251', '300296', '603587']
+    code_list9 = ['600388', '002714', '600660', '002505', '000156', '600390', '601919', '002179', '688201', '601888',
+                  '600195', '300413', '300251', '300296', '603587']
     # gas
     code_list10 = ['600777', '600256', '603393']
-    # code_list = ['600068']
+    # code_list = ['000001']
     code_list = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8 + code_list9 + code_list10 + hs300_code_list + zz500_code_list
     code_list = list(set(code_list))
     code_list.sort()
     code_list_top = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8 + code_list9 + code_list10
     code_list_top = list(set(code_list_top))
     util.transfer_code_as_ts_code(code_list)
-    sd.download_stock_data_as_csv(code_list, dataDate)
-    sd.update_stock_data_for_list(code_list, dataDate)
-    generate_more_data_for_all_stocks(code_list, dataDate)
-    get_trade_signal(code_list, dataDate, code_list_top)
+    sd.download_stock_data_as_csv(code_list, DATA_DIR)
+    return code_list, code_list_top
 
 
-if __name__ == '__main__':
-    # scheduler = BlockingScheduler()
-    # scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='mon-fri', hour=10, minute=0, misfire_grace_time=3600)
-    # scheduler.start()
+def job_remove_old_data_weekly():
+    util.remove_create_stock_data_dir()
 
-    # don't use time Scheduler
-    job_update_and_generate_data_daily()
+
+def job_update_and_generate_data_daily():
+    code_list, code_list_top = download_data_from_list()
+    sd.update_stock_data_for_list(code_list, DATA_DIR)
+    generate_more_data_for_all_stocks(code_list, DATA_DIR)
+    get_trade_signal(code_list, DATA_DIR, code_list_top)
     util.zip_signal_files()
     util.send_mail('chris_zhu_sap@163.com', 'WRUERXOXFUDWRBFM', 'chris_zhu_sap@163.com', 'send signal file', 'Hi Chris, \n  This is a test to send signal files!', util.get_signal_zip_file_path())
 
 
-    # update_generated_data_for_all_stocks(code_list, dataDate)
-    # get_current_trade_report(code_list, dataDate)
-    # code_list = ['000001','000002','000063']
-    # generate_more_data_for_all_stocks(code_list, dataDate)
-    # update_generated_data_for_all_stocks(code_list,dataDate)
-    # get_current_trade_report(code_list,dataDate)
+if __name__ == '__main__':
+    scheduler = BlockingScheduler()
+    # scheduler.add_job(job_remove_old_data_weekly, 'cron', day_of_week='mon-fri', hour=10, minute=0,
+    #                   misfire_grace_time=3600)
+    # scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='mon-fri', hour=10, minute=0, misfire_grace_time=3600)
+    scheduler.add_job(job_remove_old_data_weekly, 'cron', day_of_week='wed', hour=10, minute=0,
+                      misfire_grace_time=3600)
+    scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='wed', hour=10, minute=1, misfire_grace_time=3600)
+    scheduler.start()
+
+    # don't use time Scheduler
+    # job_update_and_generate_data_daily()
+
+    #  delete then generate latest data
+    # job_remove_old_data_weekly()

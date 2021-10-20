@@ -6,6 +6,7 @@ import data_process as dp
 import zipfile as zf
 import smtplib
 import mimetypes
+import shutil
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -126,9 +127,6 @@ def send_mail(user_name, user_pwd, receiver, title, content, file=None, email_ho
         attach_zip.set_payload(data.read())
         data.close()
         encoders.encode_base64(attach_zip)
-        # att = MIMEText(open(file).read())
-        # att["Content-Type"] = 'application/octet-stream'
-        # att["Content-Disposition"] = 'attachment; filename="%s"' % file
         file_name = get_signal_zip_file_name()
         attach_zip.add_header('Content-Disposition', 'attachment', filename=file_name)
         msg.attach(attach_zip)
@@ -145,10 +143,16 @@ def send_mail(user_name, user_pwd, receiver, title, content, file=None, email_ho
         else:
             print('Send successful!')
 
-# def adjust_concerned_stock_on_top(df, concerned_stock_code_list):
-#     if len(df) > 0 and len(concerned_stock_code_list) > 0:
-#         concerned_ts_stock_code_list = get_ts_code(concerned_stock_code_list)
-#         for code in concerned_ts_stock_code_list:
-#             df_concerned_stock_data = df[(df['code'] == code)]
-#             if len(df_concerned_stock_data) > 0:
-#                 index_list = df_concerned_stock_data.index.tolist()
+
+def remove_create_stock_data_dir():
+    if os.path.exists(dp.DATA_DIR):
+        for path, dir_names, file_names in os.walk(dp.DATA_DIR):
+            for file_name in file_names:
+                file_path = os.path.join(dp.DATA_DIR, file_name)
+                os.remove(file_path)
+            for dir_name in dir_names:
+                dir_path = os.path.join(dp.DATA_DIR, dir_name)
+                shutil.rmtree(dir_path)
+    else:
+        os.makedirs(dp.DATA_DIR)
+

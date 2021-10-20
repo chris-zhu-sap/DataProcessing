@@ -14,6 +14,7 @@ import datetime
 import threading
 import shutil
 import util
+import urllib
 
 DAY = 'D'
 WEEK = 'W'
@@ -56,16 +57,18 @@ def get_ts_pro():
     return pro
 
 
-def get_china_stock_list(url, file_name, date=None):
-    file_path = get_data_file_path(date)
-    file_with_path = file_path + file_name
+# def get_china_stock_list(url, file_name, data_dir):
+#     file_with_path = os.path.join(data_dir, file_name)
+#     f = urllib.urlopen(url)
+#     data = f.read()
+#     with open(file_with_path, "wb") as code:
+#         code.write(data)
+
+def get_china_stock_list(url, file_name, data_dir):
+    file_with_path = os.path.join(data_dir, file_name)
 
     if os.path.exists(file_with_path) is False:
         urllib.request.urlretrieve(url, file_with_path)
-        if os.path.exists(file_path) is False:
-            os.makedirs(file_path)
-
-        shutil.move(file_name, file_with_path)
 
     if os.path.exists(file_with_path):
         df = pd.read_excel(file_with_path, dtype={'成分券代码Constituent Code': object})
@@ -117,7 +120,14 @@ def get_df_from_basic_list(date=None):
 
 def get_stock_name_by_code(stock_code, data_date=None):
     df_basic = get_df_from_basic_list(data_date)
-    return df_basic.loc[stock_code]['name']
+    df_search = df_basic[df_basic.ts_code == stock_code]
+    if len(df_search) > 0:
+        index = df_search.index.to_list()[0]
+        return df_basic.loc[index, 'name']
+    else:
+        print("[File: %s line:%d stock:%s] can't find the name for the stock!" % (
+        sys._getframe().f_code.co_filename, sys._getframe().f_lineno, stock_code))
+        sys.exit()
 
 
 def download_stock_data_as_csv(code_list_para=None, start_date=None):
@@ -130,8 +140,10 @@ def download_stock_data_as_csv(code_list_para=None, start_date=None):
     index = 1
     for ts_code in code_list_para:
         try:
-            date_temp = df.loc[ts_code]['list_date']
-            name = df.loc[ts_code]['name']
+            index_list = df.loc[df.ts_code == ts_code].index.to_list()
+            data_index = index_list[0]
+            date_temp = df.loc[data_index, 'list_date']
+            name = df.loc[data_index, 'name']
 
             date = str(date_temp)
             date_to_market = date[:4] + "-" + date[4:6] + "-" + date[6:]
@@ -171,7 +183,8 @@ def update_stock_data_for_list(code_list_para=None, date=None, k=None, update_di
 
     for ts_code in code_list_para:
         try:
-            if ts_code in df.index:
+            index_list = df.loc[df.ts_code == ts_code].index.to_list()
+            if len(index_list) > 0:
                 update_stock_data(ts_code, date, k)
                 print("#### Process to update data of %d/%d ####" % (index, length_of_code_list))
             else:
