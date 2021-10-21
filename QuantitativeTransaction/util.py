@@ -51,8 +51,10 @@ def get_delimiter():
 def get_signal_file_path(period, sig_name):
     time_format = time.strftime("%Y_%m_%d_", time.localtime())
     if isinstance(period, str):
-        return SIGNAL_FILES_DIR + get_delimiter() + time_format + sig_name + '_' + dic_period[period] + '.csv'
-    return SIGNAL_FILES_DIR + get_delimiter() + time_format + sig_name + '_' + str(period) + '.csv'
+        csv_file_name = time_format + sig_name + '_' + dic_period[period] + '.csv'
+    else:
+        csv_file_name = time_format + sig_name + '_' + str(period) + '.csv'
+    return os.path.join(SIGNAL_FILES_DIR, csv_file_name)
 
 
 def write_signal_into_csv(df, file_path):

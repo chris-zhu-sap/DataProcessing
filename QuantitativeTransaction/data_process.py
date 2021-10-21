@@ -742,6 +742,10 @@ def download_data_from_list():
     file_name = sd.get_name_and_code(zz500StockListFileUrl)
     zz500_code_list = sd.get_china_stock_list(zz500StockListFileUrl, file_name, DATA_DIR)
 
+    kc50StockListFileUrl = 'https://csi-web-dev.oss-cn-shanghai-finance-1-pub.aliyuncs.com/static/html/csindex/public/uploads/file/autofile/cons/931643cons.xls'
+    file_name = sd.get_name_and_code(kc50StockListFileUrl)
+    kc50_code_list = sd.get_china_stock_list(kc50StockListFileUrl, file_name, DATA_DIR)
+
     # concerned stocks
     code_list1 = ['002773', '600887', '300003', '300271', '601628', '603883', '300308', '000999']
     # cyclical stocks
@@ -767,8 +771,8 @@ def download_data_from_list():
                   '600195', '300413', '300251', '300296', '603587']
     # gas
     code_list10 = ['600777', '600256', '603393']
-    code_list = ['000001']
-    # code_list = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8 + code_list9 + code_list10 + hs300_code_list + zz500_code_list
+    # code_list = ['000001']
+    code_list = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8 + code_list9 + code_list10 + hs300_code_list + zz500_code_list + kc50_code_list
     code_list = list(set(code_list))
     code_list.sort()
     code_list_top = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8 + code_list9 + code_list10
@@ -793,12 +797,12 @@ def job_update_and_generate_data_daily():
 
 if __name__ == '__main__':
     scheduler = BlockingScheduler()
-    # scheduler.add_job(job_remove_old_data_weekly, 'cron', day_of_week='mon-fri', hour=10, minute=0,
+    # scheduler.add_job(job_remove_old_data_weekly, 'cron', day_of_week='fri', hour=10, minute=0,
     #                   misfire_grace_time=3600)
-    # scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='mon-fri', hour=10, minute=0, misfire_grace_time=3600)
-    scheduler.add_job(job_remove_old_data_weekly, 'cron', day_of_week='wed', hour=8, minute=15,
+    # scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='mon-fri', hour=10, minute=1, misfire_grace_time=3600)
+    scheduler.add_job(job_remove_old_data_weekly, 'cron', day_of_week='wed', hour=8, minute=30,
                       misfire_grace_time=3600)
-    scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='wed', hour=8, minute=16, misfire_grace_time=3600)
+    scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='wed', hour=8, minute=31, misfire_grace_time=3600)
     scheduler.start()
 
     # don't use time Scheduler

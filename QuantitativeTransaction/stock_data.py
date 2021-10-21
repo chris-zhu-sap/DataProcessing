@@ -456,17 +456,3 @@ if __name__ == '__main__':
     zz500_code_list = get_china_stock_list(zz500_stock_list_file_url, file_name, dp.DATA_DIR)
     print('The length of zz500_code_list is: %d!' % (len(zz500_code_list)))
 
-    # my_code_list = ['000002']
-    # print('The length of my_code_list is: %d' % len(my_code_list))
-    # code_list = hs300_code_list + zz500_code_list + my_code_list
-    # code_list = list(set(my_code_list))
-    # print('The length of code_list is: %d' % len(code_list))
-    # util.transfer_code_as_ts_code(code_list)
-    # download_stock_data_as_csv(code_list, dataDate)
-#     hs300_code_list = get_china_stock_list(hs300_stock_list_file_url, file_name,dataDate)
-#     update_stock_data_for_list(hs300_code_list,dataDate,updateDir=True)
-      ################################################################################
-      ## here dataDate is the directory(named by date) which save the old data     ###
-      ################################################################################
-    # update_stock_data_for_list(code_list, dataDate)
-
