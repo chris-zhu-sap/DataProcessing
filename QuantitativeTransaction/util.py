@@ -1,5 +1,4 @@
 import sys
-import platform
 import time
 import os
 import data_process as dp
@@ -39,13 +38,6 @@ def transfer_code_as_ts_code(code_list):
         raw_code = code_list[index]
         code_list[index] = get_ts_code(raw_code)
         index = index + 1
-
-
-def get_delimiter():
-    if 'Windows' in platform.system():
-        return "\\"
-    else:
-        return '/'
 
 
 def get_signal_file_path(period, sig_name):
@@ -93,8 +85,8 @@ def save_data_into_data_frame(current_period, PERIOD, df_all, df_current, concer
 
 def zip_signal_files():
     time_format = time.strftime("%Y_%m_%d_", time.localtime())
-    zip_file_path = SIGNAL_FILES_DIR + get_delimiter() + time_format + 'signal.zip'
-    current_zip_file_name = time_format + 'signal.zip'
+    zip_file_path = get_signal_zip_file_path()
+    current_zip_file_name = get_signal_zip_file_name()
     zp = zf.ZipFile(zip_file_path, 'w', zf.ZIP_DEFLATED)
     for path, dir_names, file_names in os.walk(SIGNAL_FILES_DIR):
         for file_name in file_names:
@@ -106,8 +98,8 @@ def zip_signal_files():
 
 
 def get_signal_zip_file_path():
-    time_format = time.strftime("%Y_%m_%d_", time.localtime())
-    zip_file_path = SIGNAL_FILES_DIR + get_delimiter() + time_format + 'signal.zip'
+    zip_file_name = get_signal_zip_file_name()
+    zip_file_path = os.path.join(SIGNAL_FILES_DIR, zip_file_name)
     return zip_file_path
 
 

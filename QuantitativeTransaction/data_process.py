@@ -6,9 +6,9 @@ Created on Sep 18, 2017
 import os
 import pandas as pd
 import sys
-from apscheduler.schedulers.blocking import BlockingScheduler
 import stock_data as sd
 import util
+from apscheduler.schedulers.blocking import BlockingScheduler
 
 DAY = 'D'
 WEEK = 'W'
@@ -248,8 +248,8 @@ def get_trade_signal(stock_list=None, data_dir=None, concerned_stock_code_list=N
 
 
 class DataProcess(object):
-    def __init__(self, stock_code, stock_name, data_dir_by_date, period=DAY):
-        self.dataPath = data_dir_by_date + util.get_delimiter() + stock_code + util.get_delimiter()
+    def __init__(self, stock_code, stock_name, data_dir, period=DAY):
+        self.dataPath = os.path.join(data_dir, stock_code)
         self.code = stock_code
         self.name = stock_name
         self.period = period
@@ -258,29 +258,21 @@ class DataProcess(object):
         self.dfDeviationData = pd.DataFrame()
 
         if period == DAY:
-            self.dataCsvFile = self.dataPath + stock_code + "_k_day.csv"
-            self.dataGenCsvFile = self.dataPath + stock_code + "_k_day_gen.csv"
-            self.deviationReportFile = self.dataPath + stock_code + "_deviation_day.csv"
-            self.reportOfLatest = data_dir_by_date + util.get_delimiter() + 'latest_day_report.csv'
-            self.reportOfCurrentTrade = data_dir_by_date + util.get_delimiter() + 'current_trade_day_report.csv'
+            self.dataCsvFile = os.path.join(self.dataPath, stock_code + '_k_day.csv')
+            self.dataGenCsvFile = os.path.join(self.dataPath, stock_code + '_k_day_gen.csv')
+            self.deviationReportFile = os.path.join(self.dataPath, stock_code + '_deviation_day.csv')
         elif period == WEEK:
-            self.dataCsvFile = self.dataPath + stock_code + "_k_week.csv"
-            self.dataGenCsvFile = self.dataPath + stock_code + "_k_week_gen.csv"
-            self.deviationReportFile = self.dataPath + stock_code + "_deviation_week.csv"
-            self.reportOfLatest = data_dir_by_date + util.get_delimiter() + 'latest_week_report.csv'
-            self.reportOfCurrentTrade = data_dir_by_date + util.get_delimiter() + 'current_trade_week_report.csv'
+            self.dataCsvFile = os.path.join(self.dataPath, stock_code + '_k_week.csv')
+            self.dataGenCsvFile = os.path.join(self.dataPath, stock_code + '_k_week_gen.csv')
+            self.deviationReportFile = os.path.join(self.dataPath, stock_code + '_deviation_week.csv')
         elif period == MONTH:
-            self.dataCsvFile = self.dataPath + stock_code + "_k_month.csv"
-            self.dataGenCsvFile = self.dataPath + stock_code + "_k_month_gen.csv"
-            self.deviationReportFile = self.dataPath + stock_code + "_deviation_month.csv"
-            self.reportOfLatest = data_dir_by_date + util.get_delimiter() + 'latest_month_report.csv'
-            self.reportOfCurrentTrade = data_dir_by_date + util.get_delimiter() + 'current_trade_month_report.csv'
+            self.dataCsvFile = os.path.join(self.dataPath, stock_code + '_k_month.csv')
+            self.dataGenCsvFile = os.path.join(self.dataPath, stock_code + '_k_month_gen.csv')
+            self.deviationReportFile = os.path.join(self.dataPath, stock_code + '_deviation_month.csv')
         elif period == HOUR:
-            self.dataCsvFile = self.dataPath + stock_code + "_k_hour.csv"
-            self.dataGenCsvFile = self.dataPath + stock_code + "_k_hour_gen.csv"
-            self.deviationReportFile = self.dataPath + stock_code + "_deviation_hour.csv"
-            self.reportOfLatest = data_dir_by_date + util.get_delimiter() + 'latest_hour_report.csv'
-            self.reportOfCurrentTrade = data_dir_by_date + util.get_delimiter() + 'current_trade_hour_report.csv'
+            self.dataCsvFile = os.path.join(self.dataPath, stock_code + '_k_hour.csv')
+            self.dataGenCsvFile = os.path.join(self.dataPath, stock_code + '_k_hour_gen.csv')
+            self.deviationReportFile = os.path.join(self.dataPath, stock_code + '_deviation_hour.csv')
         else:
             print("[File:%s line:%d stock:%s] Error: input parameter period is not supported now!" % (
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
@@ -771,7 +763,7 @@ def download_data_from_list():
                   '600195', '300413', '300251', '300296', '603587']
     # gas
     code_list10 = ['600777', '600256', '603393']
-    # code_list = ['000001']
+    # code_list = ['002174']
     code_list = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8 + code_list9 + code_list10 + hs300_code_list + zz500_code_list + kc50_code_list
     code_list = list(set(code_list))
     code_list.sort()
@@ -797,15 +789,12 @@ def job_update_and_generate_data_daily():
 
 if __name__ == '__main__':
     scheduler = BlockingScheduler()
-    # scheduler.add_job(job_remove_old_data_weekly, 'cron', day_of_week='fri', hour=10, minute=0,
-    #                   misfire_grace_time=3600)
-    # scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='mon-fri', hour=10, minute=1, misfire_grace_time=3600)
-    scheduler.add_job(job_remove_old_data_weekly, 'cron', day_of_week='wed', hour=8, minute=30,
-                      misfire_grace_time=3600)
-    scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='wed', hour=8, minute=31, misfire_grace_time=3600)
+    scheduler.add_job(job_remove_old_data_weekly, 'cron', day_of_week='fri', hour=10, minute=0, misfire_grace_time=3600)
+    scheduler.add_job(job_update_and_generate_data_daily, 'cron', day_of_week='mon-fri', hour=10, minute=1, misfire_grace_time=3600)
     scheduler.start()
 
     # don't use time Scheduler
+    # job_remove_old_data_weekly()
     # job_update_and_generate_data_daily()
 
     #  delete then generate latest data

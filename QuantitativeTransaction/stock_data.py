@@ -8,11 +8,9 @@ import pandas as pd
 import time
 import os
 import sys
-import urllib
 import re
 import data_process as dp
 import threading
-import shutil
 import util
 import urllib
 
@@ -39,12 +37,12 @@ class SingletonBasicStockInfo(object):
                 SingletonBasicStockInfo.instance = SingletonBasicStockInfo()
                 if os.path.exists(file_with_path):
                     SingletonBasicStockInfo.instance.basicInfoDf = pd.read_csv(file_with_path, encoding='utf-8',
-                                                                               dtype={'code': str})
-                    SingletonBasicStockInfo.instance.basicInfoDf.set_index('ts_code', inplace=True)
+                                                                               dtype={'ts_code': str}, index_col=False)
+                    # SingletonBasicStockInfo.instance.basicInfoDf.set_index('ts_code', inplace=True)
                 else:
                     pro = get_ts_pro()
                     SingletonBasicStockInfo.instance.basicInfoDf = pro.stock_basic()
-                    SingletonBasicStockInfo.instance.basicInfoDf.to_csv(file_with_path, encoding='utf-8', index='code')
+                    SingletonBasicStockInfo.instance.basicInfoDf.to_csv(file_with_path, encoding='utf-8')
             SingletonBasicStockInfo.mutex.release()
 
         return SingletonBasicStockInfo.instance
@@ -82,17 +80,6 @@ def get_date():
     return time.strftime('%Y-%m-%d')
 
 
-# def get_data_file_path(data_dir):
-#     if date is None:
-#         dir_name_by_date = time.strftime('%Y-%m-%d')
-#     else:
-#         dir_name_by_date = date
-#
-#     delimiter = util.get_delimiter()
-#
-#     return os.getcwd() + delimiter + dir_name_by_date + delimiter
-
-
 def get_df_from_basic_list(data_dir):
     stock_basic_info_name = 'stock_basic_list.csv'
     file_with_path = os.path.join(data_dir, stock_basic_info_name)
@@ -108,6 +95,7 @@ def get_stock_name_by_code(stock_code, data_dir=None):
     df_search = df_basic[df_basic.ts_code == stock_code]
     if len(df_search) > 0:
         index = df_search.index.to_list()[0]
+    # if stock_code in df_basic.index:
         return df_basic.loc[index, 'name']
     else:
         print("[File: %s line:%d stock:%s] can't find the name for the stock!" % (
@@ -115,8 +103,8 @@ def get_stock_name_by_code(stock_code, data_dir=None):
         sys.exit()
 
 
-def download_stock_data_as_csv(code_list_para=None, start_date=None):
-    df = get_df_from_basic_list(start_date)
+def download_stock_data_as_csv(code_list_para=None, data_dir=None):
+    df = get_df_from_basic_list(data_dir)
 
     if code_list_para is None:
         code_list_para = df.index
@@ -133,7 +121,7 @@ def download_stock_data_as_csv(code_list_para=None, start_date=None):
             date = str(date_temp)
             date_to_market = date[:4] + "-" + date[4:6] + "-" + date[6:]
 
-            my_stock = StockData(ts_code, name, start_date)
+            my_stock = StockData(ts_code, name, data_dir)
             if my_stock.checkDataFilesDownloaded() is False:
                 print("#### Process to get data of %d/%d ####" % (index, length_of_code_list))
                 my_stock.getKDataAsCSV(k=DAY, start=date_to_market)
@@ -170,6 +158,8 @@ def update_stock_data_for_list(code_list_para=None, data_dir=None, k=None):
         try:
             index_list = df.loc[df.ts_code == ts_code].index.to_list()
             if len(index_list) > 0:
+                index = index_list[0]
+            # if ts_code in df.index:
                 update_stock_data(ts_code, data_dir, k)
                 print("#### Process to update data of %d/%d ####" % (index, length_of_code_list))
             else:
@@ -189,27 +179,6 @@ def update_stock_data(code, data_dir=None, k=None):
         my_stock.updateAllKData()
     else:
         my_stock.updateKData(k)
-
-
-# def get_next_date(date_str):
-#     if date_str is not None and date_str != '':
-#         new_date_str = ''
-#         m1 = re.match(r'(\d+)/(\d+)/(\d+)', date_str)
-#         m2 = re.match(r'(\d+)-(\d+)-(\d+)', date_str)
-#         if m1 is None and m2 is None:
-#             print("[File:%s line:%d] The format of date is unexpected!" % (sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
-#             sys.exit()
-#         else:
-#             if m1 is None:
-#                 new_date_str = date_str
-#             else:
-#                 new_date_str = m1.group(3) + '-' + m1.group(1) + '-' + m1.group(2)
-#         the_date = datetime.datetime.strptime(new_date_str, '%Y-%m-%d')
-#         next_date = the_date + datetime.timedelta(days=1)
-#         return datetime.datetime.strftime(next_date, "%Y-%m-%d")
-#     else:
-#         print("[File: %s line:%d]: The parameter dateStr is empty!" % (sys._getframe().f_code.co_filename, sys._getframe().f_lineno))
-#         sys.exit()
 
 
 class StockData(object):
@@ -268,10 +237,10 @@ class StockData(object):
         self.dataDir = data_dir
 
     def setDataFilePath(self):
-        self.dayKDataFilePath = self.dataPath + util.get_delimiter() + self.stockCode + "_k_day.csv"
-        self.weekKDataFilePath = self.dataPath + util.get_delimiter() + self.stockCode + "_k_week.csv"
-        self.monthKDataFilePath = self.dataPath + util.get_delimiter() + self.stockCode + "_k_month.csv"
-        self.hourKDataFilePath = self.dataPath + util.get_delimiter() + self.stockCode + "_k_hour.csv"
+        self.dayKDataFilePath = os.path.join(self.dataPath, self.stockCode + "_k_day.csv")
+        self.weekKDataFilePath = os.path.join(self.dataPath, self.stockCode + "_k_week.csv")
+        self.monthKDataFilePath = os.path.join(self.dataPath, self.stockCode + "_k_month.csv")
+        # self.hourKDataFilePath = os.path.join(self.dataPath, self.stockCode + "_k_hour.csv")
 
     def checkDataFilesDownloaded(self):
         if os.path.exists(self.dayKDataFilePath) and os.path.exists(self.weekKDataFilePath) and os.path.exists(self.monthKDataFilePath):
@@ -344,8 +313,7 @@ class StockData(object):
         self.updateKData(DAY)
         self.updateKData(WEEK)
         self.updateKData(MONTH)
-
-    #         self.updateKData(HOUR)
+        # self.updateKData(HOUR)
 
     def updateKData(self, k=None):
         if k is not None:
