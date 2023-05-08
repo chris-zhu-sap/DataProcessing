@@ -57,19 +57,23 @@ def get_ts_pro():
 
 def get_china_stock_list(url, file_name, data_dir):
     file_with_path = os.path.join(data_dir, file_name)
-
-    if os.path.exists(file_with_path) is False:
-        urllib.request.urlretrieve(url, file_with_path)
-
-    if os.path.exists(file_with_path):
-        df = pd.read_excel(file_with_path, dtype={'成分券代码Constituent Code': object})
-        stock_code = df.iloc[:, 4]
-        return stock_code.values.tolist()
-    else:
-        print('[File: %s line:%d] %s is not exists!' % (
-            sys._getframe().f_code.co_filename, sys._getframe().f_lineno, file_with_path))
-        sys.exit()
-
+    try:
+        if os.path.exists(file_with_path) is False:
+            if os.path.exists(data_dir) is False:
+                os.mkdir(data_dir)
+            urllib.request.urlretrieve(url, file_with_path)
+        if os.path.exists(file_with_path):
+            current_directory = os.path.dirname(os.path.abspath(__file__))
+            xls_path = os.path.join(current_directory, file_with_path)
+            df = pd.read_excel(xls_path, dtype={'成分券代码Constituent Code': object})
+            stock_code = df.iloc[:, 4]
+            return stock_code.values.tolist()
+        else:
+            print('[File: %s line:%d] %s is not exists!' % (
+                sys._getframe().f_code.co_filename, sys._getframe().f_lineno, file_with_path))
+            sys.exit()
+    except Exception as e:
+        print(e)
 
 def get_name_and_code(url):
     m = re.match(r'.*(\d{6})(.*)', url)
@@ -397,8 +401,8 @@ class StockData(object):
                                     'pre_close': [0],
                                     'change': [0],
                                     'pct_chg': [0],
-                                    'vol': [0],
-                                    'amount': [0],
+                                    'vol': df_daily_data['vol'].sum(),
+                                    'amount': df_daily_data['amount'].sum(),
                                     }
                             df_data = pd.DataFrame(data)
                             df = pd.concat([df, df_data.sort_values(by='trade_date', ascending=True)])
@@ -413,7 +417,8 @@ class StockData(object):
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, file_path))
             sys.exit()
 
-
+############### install following module before running  ########################
+############### tushare xlrd apscheduler ########################################
 if __name__ == '__main__':
     zz500_stock_list_file_url = 'https://csi-web-dev.oss-cn-shanghai-finance-1-pub.aliyuncs.com/static/html/csindex/public/uploads/file/autofile/cons/000905cons.xls'
     hs300_stock_list_file_url = 'https://csi-web-dev.oss-cn-shanghai-finance-1-pub.aliyuncs.com/static/html/csindex/public/uploads/file/autofile/cons/000300cons.xls'

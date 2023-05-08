@@ -8,6 +8,7 @@ import pandas as pd
 import sys
 import stock_data as sd
 import util
+import numpy as np
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 DAY = 'D'
@@ -23,6 +24,8 @@ SIGNAL_MA_DOWN = 'ma_start_down'
 
 SIGNAL_UP_CROSS_MA = 'up_cross_ma'
 SIGNAL_DOWN_CROSS_MA = 'down_cross_ma'
+
+SIGNAL_AMOUNT_ENLARGE = 'amount_enlarge'
 
 SHORT = 12
 LONG = 26
@@ -118,133 +121,155 @@ def update_generated_data_for_all_stocks(stock_list=None, data_dir=None):
 
 
 def get_trade_signal(stock_list=None, data_dir=None, concerned_stock_code_list=None):
-    if stock_list is None or len(stock_list) == 0 or data_dir is None or concerned_stock_code_list is None \
-            or len(concerned_stock_code_list) == 0:
-        print(
-            f"[File:{sys._getframe().f_code.co_filename} line:{sys._getframe().f_lineno}] Error: Parameters should not be empty!")
-        sys.exit()
-    else:
-        util.transfer_code_as_ts_code(concerned_stock_code_list)
-        util.create_report_dir()
-        df_day_bull_cross = pd.DataFrame()
-        df_week_bull_cross = pd.DataFrame()
-        df_month_bull_cross = pd.DataFrame()
-        df_day_deviation = pd.DataFrame()
-        df_week_deviation = pd.DataFrame()
-        df_month_deviation = pd.DataFrame()
-        df_ma_day_short_up = pd.DataFrame()
-        df_ma_day_mid_up = pd.DataFrame()
-        df_ma_day_long_up = pd.DataFrame()
-        df_ma_day_short_down = pd.DataFrame()
-        df_ma_day_mid_down = pd.DataFrame()
-        df_ma_day_long_down = pd.DataFrame()
-        df_up_cross_ma_day_short = pd.DataFrame()
-        df_up_cross_ma_day_mid = pd.DataFrame()
-        df_up_cross_ma_day_long = pd.DataFrame()
-        df_down_cross_ma_day_short = pd.DataFrame()
-        df_down_cross_ma_day_mid = pd.DataFrame()
-        df_down_cross_ma_day_long = pd.DataFrame()
-        length_of_code_list = len(stock_list)
-        index = 1
-        for code in stock_list:
-            print("#### Process to generate trade signal of %d/%d ####" % (index, length_of_code_list))
-            index = index + 1
-            for period in PERIOD_LIST_ALL:
-                stock = sd.StockData(code, data_dir=data_dir)
-                stock_processed_data = DataProcess(code, stock.getStockName(), data_dir, period)
-                stock_processed_data.readGenData()
-                have_deviation_data = stock_processed_data.readDeviationData()
-                latest_date_str = stock_processed_data.getLatestDateStr()
-                if period == DAY:
-                    for period_day in PERIOD_LIST_MA_START_TO_UP:
-                        start_up = stock_processed_data.isMaStartUp(period_day)
-                        start_down = stock_processed_data.isMaStartDown(period_day)
-                        cross_up = stock_processed_data.isClosePriceCrossUpMa(period_day)
-                        cross_down = stock_processed_data.isClosePriceCrossDownMa(period_day)
+    try:
+        if stock_list is None or len(stock_list) == 0 or data_dir is None or concerned_stock_code_list is None \
+                or len(concerned_stock_code_list) == 0:
+            print(
+                f"[File:{sys._getframe().f_code.co_filename} line:{sys._getframe().f_lineno}] Error: Parameters should not be empty!")
+            sys.exit()
+        else:
+            util.transfer_code_as_ts_code(concerned_stock_code_list)
+            util.create_report_dir()
+            df_day_bull_cross = pd.DataFrame()
+            df_week_bull_cross = pd.DataFrame()
+            df_month_bull_cross = pd.DataFrame()
+            df_day_deviation = pd.DataFrame()
+            df_week_deviation = pd.DataFrame()
+            df_month_deviation = pd.DataFrame()
+            df_ma_day_short_up = pd.DataFrame()
+            df_ma_day_mid_up = pd.DataFrame()
+            df_ma_day_long_up = pd.DataFrame()
+            df_ma_day_short_down = pd.DataFrame()
+            df_ma_day_mid_down = pd.DataFrame()
+            df_ma_day_long_down = pd.DataFrame()
+            df_up_cross_ma_day_short = pd.DataFrame()
+            df_up_cross_ma_day_mid = pd.DataFrame()
+            df_up_cross_ma_day_long = pd.DataFrame()
+            df_down_cross_ma_day_short = pd.DataFrame()
+            df_down_cross_ma_day_mid = pd.DataFrame()
+            df_down_cross_ma_day_long = pd.DataFrame()
+            df_day_amount_enlarge = pd.DataFrame()
+            df_week_amount_enlarge = pd.DataFrame()
+            df_month_amount_enlarge = pd.DataFrame()
+            length_of_code_list = len(stock_list)
+            index = 1
+            for code in stock_list:
+                print("#### Process to generate trade signal of %d/%d, code:%s ####" % (index, length_of_code_list, code))
+                index = index + 1
+                for period in PERIOD_LIST_ALL:
+                    stock = sd.StockData(code, data_dir=data_dir)
+                    stock_processed_data = DataProcess(code, stock.getStockName(), data_dir, period)
+                    stock_processed_data.readGenData()
+                    have_deviation_data = stock_processed_data.readDeviationData()
+                    latest_date_str = stock_processed_data.getLatestDateStr()
+                    if period == DAY:
+                        for period_day in PERIOD_LIST_MA_START_TO_UP:
+                            start_up = stock_processed_data.isMaStartUp(period_day)
+                            start_down = stock_processed_data.isMaStartDown(period_day)
+                            cross_up = stock_processed_data.isClosePriceCrossUpMa(period_day)
+                            cross_down = stock_processed_data.isClosePriceCrossDownMa(period_day)
 
-                        if start_up is True:
-                            key = 'is_ma_' + str(period_day) + '_start_up'
-                            data = {'code': [stock_processed_data.code],
-                                    'name': [stock_processed_data.name],
-                                    key: [start_up]
-                                    }
-                            df_up = pd.DataFrame(data)
-                            df_ma_day_short_up = util.save_data_into_data_frame(period_day, MA_SHORT, df_ma_day_short_up, df_up, concerned_stock_code_list)
-                            df_ma_day_mid_up = util.save_data_into_data_frame(period_day, MA_MID, df_ma_day_mid_up, df_up, concerned_stock_code_list)
-                            df_ma_day_long_up = util.save_data_into_data_frame(period_day, MA_LONG, df_ma_day_long_up, df_up, concerned_stock_code_list)
+                            if start_up is True:
+                                key = 'is_ma_' + str(period_day) + '_start_up'
+                                data = {'code': [stock_processed_data.code],
+                                        'name': [stock_processed_data.name],
+                                        key: [start_up]
+                                        }
+                                df_up = pd.DataFrame(data)
+                                df_ma_day_short_up = util.save_data_into_data_frame(period_day, MA_SHORT, df_ma_day_short_up, df_up, concerned_stock_code_list)
+                                df_ma_day_mid_up = util.save_data_into_data_frame(period_day, MA_MID, df_ma_day_mid_up, df_up, concerned_stock_code_list)
+                                df_ma_day_long_up = util.save_data_into_data_frame(period_day, MA_LONG, df_ma_day_long_up, df_up, concerned_stock_code_list)
 
-                        if start_down is True:
-                            key = 'is_ma_' + str(period_day) + '_start_down'
-                            data = {'code': [stock_processed_data.code],
-                                    'name': [stock_processed_data.name],
-                                    key: [start_down]
-                                    }
-                            df_down = pd.DataFrame(data)
-                            df_ma_day_short_down = util.save_data_into_data_frame(period_day, MA_SHORT, df_ma_day_short_down, df_down, concerned_stock_code_list)
-                            df_ma_day_mid_down = util.save_data_into_data_frame(period_day, MA_MID, df_ma_day_mid_down, df_down, concerned_stock_code_list)
-                            df_ma_day_long_down = util.save_data_into_data_frame(period_day, MA_LONG, df_ma_day_long_down, df_down, concerned_stock_code_list)
+                            if start_down is True:
+                                key = 'is_ma_' + str(period_day) + '_start_down'
+                                data = {'code': [stock_processed_data.code],
+                                        'name': [stock_processed_data.name],
+                                        key: [start_down]
+                                        }
+                                df_down = pd.DataFrame(data)
+                                df_ma_day_short_down = util.save_data_into_data_frame(period_day, MA_SHORT, df_ma_day_short_down, df_down, concerned_stock_code_list)
+                                df_ma_day_mid_down = util.save_data_into_data_frame(period_day, MA_MID, df_ma_day_mid_down, df_down, concerned_stock_code_list)
+                                df_ma_day_long_down = util.save_data_into_data_frame(period_day, MA_LONG, df_ma_day_long_down, df_down, concerned_stock_code_list)
 
-                        if cross_up is True:
-                            key = 'is_close_price_up_cross_ma_' + str(period_day)
-                            data = {'code': [stock_processed_data.code],
-                                    'name': [stock_processed_data.name],
-                                    key: [cross_up]
-                                    }
-                            df_cross_up = pd.DataFrame(data)
-                            df_up_cross_ma_day_short = util.save_data_into_data_frame(period_day, MA_SHORT, df_up_cross_ma_day_short, df_cross_up, concerned_stock_code_list)
-                            df_up_cross_ma_day_mid = util.save_data_into_data_frame(period_day, MA_MID, df_up_cross_ma_day_mid, df_cross_up, concerned_stock_code_list)
-                            df_up_cross_ma_day_long = util.save_data_into_data_frame(period_day, MA_LONG, df_up_cross_ma_day_long, df_cross_up, concerned_stock_code_list)
+                            if cross_up is True:
+                                key = 'is_close_price_up_cross_ma_' + str(period_day)
+                                data = {'code': [stock_processed_data.code],
+                                        'name': [stock_processed_data.name],
+                                        key: [cross_up]
+                                        }
+                                df_cross_up = pd.DataFrame(data)
+                                df_up_cross_ma_day_short = util.save_data_into_data_frame(period_day, MA_SHORT, df_up_cross_ma_day_short, df_cross_up, concerned_stock_code_list)
+                                df_up_cross_ma_day_mid = util.save_data_into_data_frame(period_day, MA_MID, df_up_cross_ma_day_mid, df_cross_up, concerned_stock_code_list)
+                                df_up_cross_ma_day_long = util.save_data_into_data_frame(period_day, MA_LONG, df_up_cross_ma_day_long, df_cross_up, concerned_stock_code_list)
 
-                        if cross_down is True:
-                            key = 'is_close_price_down_cross_ma_' + str(period_day)
-                            data = {'code': [stock_processed_data.code],
-                                    'name': [stock_processed_data.name],
-                                    key: [cross_down]
-                                    }
-                            df_cross_down = pd.DataFrame(data)
-                            df_down_cross_ma_day_short = util.save_data_into_data_frame(period_day, MA_SHORT, df_down_cross_ma_day_short, df_cross_down, concerned_stock_code_list)
-                            df_down_cross_ma_day_mid = util.save_data_into_data_frame(period_day, MA_MID, df_down_cross_ma_day_mid, df_cross_down, concerned_stock_code_list)
-                            df_down_cross_ma_day_long = util.save_data_into_data_frame(period_day, MA_LONG, df_down_cross_ma_day_long, df_cross_down, concerned_stock_code_list)
+                            if cross_down is True:
+                                key = 'is_close_price_down_cross_ma_' + str(period_day)
+                                data = {'code': [stock_processed_data.code],
+                                        'name': [stock_processed_data.name],
+                                        key: [cross_down]
+                                        }
+                                df_cross_down = pd.DataFrame(data)
+                                df_down_cross_ma_day_short = util.save_data_into_data_frame(period_day, MA_SHORT, df_down_cross_ma_day_short, df_cross_down, concerned_stock_code_list)
+                                df_down_cross_ma_day_mid = util.save_data_into_data_frame(period_day, MA_MID, df_down_cross_ma_day_mid, df_cross_down, concerned_stock_code_list)
+                                df_down_cross_ma_day_long = util.save_data_into_data_frame(period_day, MA_LONG, df_down_cross_ma_day_long, df_cross_down, concerned_stock_code_list)
 
-                if stock_processed_data.isCrossBullBandCurrently() is True:
-                    df_cross = stock_processed_data.getLatestGenData()
-                    df_cross = df_cross.loc[:, ['flag_cross_top', 'flag_cross_bottom', 'flag_mid_up']]
-                    df_cross['code'] = stock_processed_data.code
-                    df_cross['name'] = stock_processed_data.name
-                    df_cross = df_cross[['code', 'name', 'flag_cross_top', 'flag_cross_bottom', 'flag_mid_up']]
-                    df_day_bull_cross = util.save_data_into_data_frame(period, DAY, df_day_bull_cross, df_cross, concerned_stock_code_list)
-                    df_week_bull_cross = util.save_data_into_data_frame(period, WEEK, df_week_bull_cross, df_cross, concerned_stock_code_list)
-                    df_month_bull_cross = util.save_data_into_data_frame(period, MONTH, df_month_bull_cross, df_cross, concerned_stock_code_list)
+                    if stock_processed_data.isCrossBullBandCurrently() is True:
+                        df_cross = stock_processed_data.getLatestGenData()
+                        df_cross = df_cross.loc[:, ['flag_cross_top', 'flag_cross_bottom', 'flag_mid_up']]
+                        df_cross['code'] = stock_processed_data.code
+                        df_cross['name'] = stock_processed_data.name
+                        # df_cross = df_cross[['code', 'name', 'flag_cross_top', 'flag_cross_bottom', 'flag_mid_up']]
+                        df_day_bull_cross = util.save_data_into_data_frame(period, DAY, df_day_bull_cross, df_cross, concerned_stock_code_list)
+                        df_week_bull_cross = util.save_data_into_data_frame(period, WEEK, df_week_bull_cross, df_cross, concerned_stock_code_list)
+                        df_month_bull_cross = util.save_data_into_data_frame(period, MONTH, df_month_bull_cross, df_cross, concerned_stock_code_list)
 
-                if have_deviation_data is True:
-                    latest_deviation_date_str = stock_processed_data.getLatestDeviationDateStr()
-                    if latest_deviation_date_str == latest_date_str:
-                        latest_date = stock_processed_data.getLatestDate()
-                        df_deviation = stock_processed_data.getDeviationDateData(latest_date)
-                        df_day_deviation = util.save_data_into_data_frame(period, DAY, df_day_deviation, df_deviation, concerned_stock_code_list)
-                        df_week_deviation = util.save_data_into_data_frame(period, WEEK, df_week_deviation, df_deviation, concerned_stock_code_list)
-                        df_month_deviation = util.save_data_into_data_frame(period, MONTH, df_month_deviation, df_deviation, concerned_stock_code_list)
+                    if have_deviation_data is True:
+                        latest_deviation_date_str = stock_processed_data.getLatestDeviationDateStr()
+                        if latest_deviation_date_str == latest_date_str:
+                            latest_date = stock_processed_data.getLatestDate()
+                            df_deviation = stock_processed_data.getDeviationDateData(latest_date)
+                            df_day_deviation = util.save_data_into_data_frame(period, DAY, df_day_deviation, df_deviation, concerned_stock_code_list)
+                            df_week_deviation = util.save_data_into_data_frame(period, WEEK, df_week_deviation, df_deviation, concerned_stock_code_list)
+                            df_month_deviation = util.save_data_into_data_frame(period, MONTH, df_month_deviation, df_deviation, concerned_stock_code_list)
 
-        util.save_signal_into_csv(df_day_bull_cross, DAY, SIGNAL_CROSS_BULL)
-        util.save_signal_into_csv(df_week_bull_cross, WEEK, SIGNAL_CROSS_BULL)
-        util.save_signal_into_csv(df_month_bull_cross, MONTH, SIGNAL_CROSS_BULL)
-        util.save_signal_into_csv(df_day_deviation, DAY, SIGNAL_MACD_DEVIATION)
-        util.save_signal_into_csv(df_week_deviation, WEEK, SIGNAL_MACD_DEVIATION)
-        util.save_signal_into_csv(df_month_deviation, MONTH, SIGNAL_MACD_DEVIATION)
+                    if stock_processed_data.isAmountEnlargeObviously() is True:
+                        df_gen_data = stock_processed_data.getLatestGenData()
+                        df_amount_enlarge = df_gen_data.loc[:, ['amount_divide_mma']]
+                        df_amount_enlarge['code'] = stock_processed_data.code
+                        df_amount_enlarge['name'] = stock_processed_data.name
+                        # df_amount_enlarge = df_amount_enlarge[['code', 'name', 'amount_divide_mma']]
+                        df_day_amount_enlarge = util.save_data_into_data_frame(period, DAY, df_day_amount_enlarge, df_amount_enlarge, concerned_stock_code_list)
+                        df_week_amount_enlarge = util.save_data_into_data_frame(period, WEEK, df_week_amount_enlarge, df_amount_enlarge, concerned_stock_code_list)
+                        df_month_amount_enlarge = util.save_data_into_data_frame(period, MONTH, df_month_amount_enlarge, df_amount_enlarge, concerned_stock_code_list)
 
-        util.save_signal_into_csv(df_ma_day_short_up, MA_SHORT, SIGNAL_MA_UP)
-        util.save_signal_into_csv(df_ma_day_mid_up, MA_MID, SIGNAL_MA_UP)
-        util.save_signal_into_csv(df_ma_day_long_up, MA_LONG, SIGNAL_MA_UP)
-        util.save_signal_into_csv(df_ma_day_short_down, MA_SHORT, SIGNAL_MA_DOWN)
-        util.save_signal_into_csv(df_ma_day_mid_down, MA_MID, SIGNAL_MA_DOWN)
-        util.save_signal_into_csv(df_ma_day_long_down, MA_LONG, SIGNAL_MA_DOWN)
+            util.save_signal_into_csv(df_day_bull_cross, DAY, SIGNAL_CROSS_BULL)
+            util.save_signal_into_csv(df_week_bull_cross, WEEK, SIGNAL_CROSS_BULL)
+            util.save_signal_into_csv(df_month_bull_cross, MONTH, SIGNAL_CROSS_BULL)
 
-        util.save_signal_into_csv(df_up_cross_ma_day_short, MA_SHORT, SIGNAL_UP_CROSS_MA)
-        util.save_signal_into_csv(df_up_cross_ma_day_mid, MA_MID, SIGNAL_UP_CROSS_MA)
-        util.save_signal_into_csv(df_up_cross_ma_day_long, MA_LONG, SIGNAL_UP_CROSS_MA)
-        util.save_signal_into_csv(df_down_cross_ma_day_short, MA_SHORT, SIGNAL_DOWN_CROSS_MA)
-        util.save_signal_into_csv(df_down_cross_ma_day_mid, MA_MID, SIGNAL_DOWN_CROSS_MA)
-        util.save_signal_into_csv(df_down_cross_ma_day_long, MA_LONG, SIGNAL_DOWN_CROSS_MA)
+            util.save_signal_into_csv(df_day_deviation, DAY, SIGNAL_MACD_DEVIATION)
+            util.save_signal_into_csv(df_week_deviation, WEEK, SIGNAL_MACD_DEVIATION)
+            util.save_signal_into_csv(df_month_deviation, MONTH, SIGNAL_MACD_DEVIATION)
+
+            util.save_signal_into_csv(df_day_amount_enlarge, DAY, SIGNAL_AMOUNT_ENLARGE)
+            util.save_signal_into_csv(df_week_amount_enlarge, WEEK, SIGNAL_AMOUNT_ENLARGE)
+            util.save_signal_into_csv(df_month_amount_enlarge, MONTH, SIGNAL_AMOUNT_ENLARGE)
+
+            util.save_signal_into_csv(df_ma_day_short_up, MA_SHORT, SIGNAL_MA_UP)
+            util.save_signal_into_csv(df_ma_day_mid_up, MA_MID, SIGNAL_MA_UP)
+            util.save_signal_into_csv(df_ma_day_long_up, MA_LONG, SIGNAL_MA_UP)
+            util.save_signal_into_csv(df_ma_day_short_down, MA_SHORT, SIGNAL_MA_DOWN)
+            util.save_signal_into_csv(df_ma_day_mid_down, MA_MID, SIGNAL_MA_DOWN)
+            util.save_signal_into_csv(df_ma_day_long_down, MA_LONG, SIGNAL_MA_DOWN)
+
+            util.save_signal_into_csv(df_up_cross_ma_day_short, MA_SHORT, SIGNAL_UP_CROSS_MA)
+            util.save_signal_into_csv(df_up_cross_ma_day_mid, MA_MID, SIGNAL_UP_CROSS_MA)
+            util.save_signal_into_csv(df_up_cross_ma_day_long, MA_LONG, SIGNAL_UP_CROSS_MA)
+            util.save_signal_into_csv(df_down_cross_ma_day_short, MA_SHORT, SIGNAL_DOWN_CROSS_MA)
+            util.save_signal_into_csv(df_down_cross_ma_day_mid, MA_MID, SIGNAL_DOWN_CROSS_MA)
+            util.save_signal_into_csv(df_down_cross_ma_day_long, MA_LONG, SIGNAL_DOWN_CROSS_MA)
+
+    except Exception as e:
+        print(e)
 
 
 class DataProcess(object):
@@ -309,6 +334,14 @@ class DataProcess(object):
     def deleteDevFile(self):
         if os.path.exists(self.deviationReportFile):
             os.remove(self.deviationReportFile)
+
+    def isAmountEnlargeObviously(self):
+        times = 2
+        length = len(self.dfGenData)
+        if length > 0:
+            if self.dfGenData.at[length-1, 'amount_divide_mma'] > times:
+                return True
+        return False
 
     def isClosePriceCrossUpMa(self, period):
         length = len(self.dfGenData)
@@ -478,6 +511,11 @@ class DataProcess(object):
 
         self.dfData.fillna(0, inplace=True)
 
+    def addMMA(self, period):
+        if period > 0:
+            mma_name = 'MMA' + str(period)
+            self.dfData[mma_name] = self.dfData['amount'].shift(1).rolling(window=5, min_periods=1).mean().fillna(0)
+
     def addKDJ(self, n=KDJ_N, m1=KDJ_M1):
         if len(self.dfData) > 0 and n > 0 and m1 > 0:
             if len(self.dfData) >= n:
@@ -554,6 +592,17 @@ class DataProcess(object):
             print('[File:%s line:%d stock:%s!] Error: Parameter is invalid!' % (
                 sys._getframe().f_code.co_filename, sys._getframe().f_lineno, self.code))
             sys.exit()
+
+    def addAmountDividePrevious(self):
+        if len(self.dfData) > 0:
+            #[5,10]
+            period = 5
+            self.addMMA(period)
+            mma_name = 'MMA' + str(period)
+            self.dfData['amount_divide_mma'] = self.dfData['amount'].div(self.dfData[mma_name].shift(1)).fillna(0)
+            self.dfData.loc[self.dfData.index == 0, 'amount_divide_mma'] = 0
+            self.dfData.loc[self.dfData['amount'].shift(1) == 0, 'amount_divide_mma'] = 0
+            self.dfData.loc[np.isinf(self.dfData['amount_divide_mma']), 'amount_divide_mma'] = 0
 
     def generateDeviationByMACD(self, period_list, last_n_periods=None, update=False,
                                 update_report_for_latest_data=False,
@@ -720,6 +769,7 @@ class DataProcess(object):
         self.addMACD()
         self.addKDJ()
         self.addBullBand()
+        self.addAmountDividePrevious()
         self.deleteDevFile()
         self.generateDeviationByMACD(period_list=PERIOD_LIST_DEV, last_n_periods=1)
         # self.generateDeviationByMACD(PERIOD_LIST_DEV)
@@ -739,32 +789,32 @@ def download_data_from_list():
     kc50_code_list = sd.get_china_stock_list(kc50StockListFileUrl, file_name, DATA_DIR)
 
     # concerned stocks
-    code_list1 = ['002773', '600887', '300003', '300271', '601628', '603883', '300308', '000999']
+    code_list1 = ['688339']
     # cyclical stocks
-    code_list2 = ['600000', '002142', '601998', '600919', '601658', '601669', '601800', '000002', '600585', '601696',
-                  '601628', '600547', '300059', '601318', '600036', '600030']
+    code_list2 = ['600489', '300033', '601288', '000975', '002142', '601998', '601658', '000002',
+                  '601628', '600585', '600547', '300059', '601318', '600030','600036']
     # foreign capital
-    code_list3 = ['000338', '600887', '002508', '300244', '603489', '002008', '601901', '000333', '002439', '000651']
+    code_list3 = ['000338', '002032', '601901', '600887', '000651', '002508', '603489', '000333', '300244']
     # tech stocks
-    code_list4 = ['300308', '600584', '688396', '300223', '603501', '002049', '300782', '603986', '688088', '300348',
-                  '688169', '300339', '300373', '300346', '605111', '688012', '002371']
+    code_list4 = ['688327', '688318', '688787', '688012', '002371', '300782', '603986', '688396', '603501', '600584',
+                  '002049', '300223', '605111', '300373']
     # pharmaceutical stocks
-    code_list5 = ['002603', '603858', '002287', '000999', '002317', '603392', '000538', '603087', '603882', '603883',
-                  '300482', '688690', '300358', '688399', '688266', '002773', '300003', '300146']
+    code_list5 = ['000999', '688271', '002223', '300760', '688690', '603259', '300347', '300482', '603882', '603858',
+                  '300358', '300725', '603392', '603087', '688399', '002287', '002603', '688626', '600276', '002317', '600211']
     # new energy
-    code_list6 = ['002249', '601865', '300376', '002709', '002158', '002594', '601615', '002733', '002639', '688339',
-                  '600478', '002129', '603806']
+    code_list6 = ['603799', '002709', '601865', '603806', '002594', '002460', '002015', '002129', '688599', '601012',
+                  '688339', '002158', '688248', '601615']
     # yi mei
-    code_list7 = ['000963', '300896', '688363']
+    code_list7 = ['300896', '688363']
     # wine
     code_list8 = ['600779', '002304', '000799', '600809', '000858', '600519']
     # other
-    code_list9 = ['600388', '002714', '600660', '002505', '000156', '600390', '601919', '002179', '688201', '601888',
-                  '600195', '300413', '300251', '300296', '603587']
+    code_list9 = ['300296', '603799', '300033', '601888', '600138', '600862', '300699', '600660', '300144', '300146',
+                  '000998', '600195', '600388', '002505', '000156', '300251', '300413']
     # gas
     code_list10 = ['600777', '600256', '603393']
-    # code_list = ['002155']
     code_list = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8 + code_list9 + code_list10 + hs300_code_list + zz500_code_list + kc50_code_list
+    # code_list = ['000027']
     code_list = list(set(code_list))
     code_list.sort()
     code_list_top = code_list1 + code_list2 + code_list3 + code_list4 + code_list5 + code_list6 + code_list7 + code_list8 + code_list9 + code_list10

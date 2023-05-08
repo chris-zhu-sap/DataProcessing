@@ -6,6 +6,7 @@ import zipfile as zf
 import smtplib
 import mimetypes
 import shutil
+import pandas as pd
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -74,9 +75,9 @@ def save_data_into_data_frame(current_period, PERIOD, df_all, df_current, concer
         if len(df_all) > 0:
             code_current = df_current.at[0, 'code']
             if code_current in concerned_stock_code_list:
-                df_all = df_current.append(df_all)
+                df_all = pd.concat([df_current, df_all]) #df_current.append(df_all)
             else:
-                df_all = df_all.append(df_current)
+                df_all = pd.concat([df_all, df_current])#df_all.append(df_current)
             df_all = df_all.reset_index(drop=True)
         else:
             df_all = df_current
